@@ -1,5 +1,6 @@
 import { existsSync } from "fs";
-import { chromium, type Browser, type Page } from "playwright";
+import puppeteer, { type Browser, type Page } from "puppeteer-core";
+import { chromium as playwrightChromium } from "playwright";
 import {
   MENU_PDF_WINE_PAGE_BREAK_CLASS,
   MENU_PDF_WINE_PAGE_BOTTOM_PAD_CLASS,
@@ -23,6 +24,7 @@ function systemChromiumPath(): string | undefined {
     process.env.CHROME_PATH,
     process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH,
     "/bin/chromium",
+    "/bin/chromium-browser",
     "/usr/bin/chromium",
     "/usr/bin/chromium-browser",
   ].filter((value): value is string => Boolean(value));
@@ -30,38 +32,52 @@ function systemChromiumPath(): string | undefined {
   return candidates.find((candidate) => existsSync(candidate));
 }
 
+function sleep(ms: number) {
+  return new Promise<void>((resolve) => setTimeout(resolve, ms));
+}
+
 async function launchPdfBrowser(): Promise<Browser> {
   const commonArgs = [
     "--no-sandbox",
     "--disable-setuid-sandbox",
     "--disable-dev-shm-usage",
+    "--font-render-hinting=none",
   ];
+  const defaultViewport = {
+    width: 1200,
+    height: 1600,
+    deviceScaleFactor: 1,
+  };
 
-  if (!needsServerlessChromium()) {
-    return chromium.launch({
+  // Railway: @sparticuz/chromium is built for puppeteer-core (not Playwright CDP).
+  if (needsServerlessChromium()) {
+    const systemPath = systemChromiumPath();
+    if (systemPath) {
+      return puppeteer.launch({
+        executablePath: systemPath,
+        headless: true,
+        args: commonArgs,
+        defaultViewport,
+      });
+    }
+
+    const { default: sparticuzChromium } = await import("@sparticuz/chromium");
+    sparticuzChromium.setGraphicsMode = false;
+
+    return puppeteer.launch({
+      executablePath: await sparticuzChromium.executablePath(),
       headless: true,
-      args: commonArgs,
+      args: [...sparticuzChromium.args, ...commonArgs],
+      defaultViewport,
     });
   }
 
-  // Prefer Nix/system Chromium on Railway (Playwright's bundled browser needs missing libs).
-  const systemPath = systemChromiumPath();
-  if (systemPath) {
-    return chromium.launch({
-      executablePath: systemPath,
-      headless: true,
-      args: commonArgs,
-    });
-  }
-
-  const { default: sparticuzChromium } = await import("@sparticuz/chromium");
-  // Setter API (not a method): disables WebGL / swiftshader extract on Railway.
-  sparticuzChromium.setGraphicsMode = false;
-
-  return chromium.launch({
-    executablePath: await sparticuzChromium.executablePath(),
+  return puppeteer.launch({
+    executablePath:
+      systemChromiumPath() ?? playwrightChromium.executablePath(),
     headless: true,
-    args: [...sparticuzChromium.args, ...commonArgs],
+    args: commonArgs,
+    defaultViewport,
   });
 }
 
@@ -71,7 +87,9 @@ function runInPage(page: Page, script: string, arg?: unknown) {
     `return (${script})(arg);`
   ) as (arg: unknown) => void | Promise<void>;
 
-  return arg === undefined ? page.evaluate(fn as BrowserEvaluator) : page.evaluate(fn, arg);
+  return arg === undefined
+    ? page.evaluate(fn as BrowserEvaluator)
+    : page.evaluate(fn, arg);
 }
 
 function runInPageSync<T>(page: Page, script: string): Promise<T> {
@@ -81,7 +99,7 @@ function runInPageSync<T>(page: Page, script: string): Promise<T> {
 
 function waitInPage(page: Page, script: string, options?: { timeout?: number }) {
   const fn = new Function(`return (${script})();`) as BrowserPredicate;
-  return page.waitForFunction(fn, options);
+  return page.waitForFunction(fn, { timeout: options?.timeout ?? 30_000 });
 }
 
 async function eagerLoadMenuImages(page: Page) {
@@ -111,7 +129,10 @@ async function eagerLoadMenuImages(page: Page) {
 }
 
 async function waitForCoverVideo(page: Page) {
-  const hasVideo = await page.locator(".menu-intro-cover-video-only").count();
+  const hasVideo = await page.$$eval(
+    ".menu-intro-cover-video-only",
+    (elements) => elements.length
+  );
   if (hasVideo === 0) return;
 
   await runInPage(
@@ -206,18 +227,17 @@ async function seekCoverVideoToMiddle(page: Page) {
 }
 
 async function rasterizeCoverVideo(page: Page) {
-  const video = page.locator(".menu-intro-cover-video-only");
-  if ((await video.count()) === 0) return;
+  const video = await page.$(".menu-intro-cover-video-only");
+  if (!video) return;
 
   await seekCoverVideoToMiddle(page);
-  await page.waitForTimeout(150);
+  await sleep(150);
 
   const jpeg = await video.screenshot({
     type: "jpeg",
     quality: 92,
-    animations: "disabled",
   });
-  const dataUrl = `data:image/jpeg;base64,${jpeg.toString("base64")}`;
+  const dataUrl = `data:image/jpeg;base64,${Buffer.from(jpeg).toString("base64")}`;
 
   await runInPage(
     page,
@@ -420,23 +440,25 @@ export async function generateMenuPdf(pageUrl: string): Promise<Buffer> {
   try {
     const page = await browser.newPage();
     const response = await page.goto(pageUrl, {
-      waitUntil: "networkidle",
+      waitUntil: "networkidle0",
       timeout: 90_000,
     });
 
     if (!response || !response.ok()) {
-      throw new Error(`Pagina menu non disponibile (${response?.status() ?? "nessuna risposta"})`);
+      throw new Error(
+        `Pagina menu non disponibile (${response?.status() ?? "nessuna risposta"})`
+      );
     }
 
     await assertMenuPageReady(page);
     await waitForMenuAssets(page);
     await rasterizeCoverVideo(page);
-    await page.emulateMedia({ media: "print" });
+    await page.emulateMediaType("print");
     await fitCategoryFooterImages(page);
     await paginateWineMenuForPdf(page);
     await padWineRowsAtPageBottom(page);
     await padWineRowsAtPageTop(page);
-    await page.waitForTimeout(300);
+    await sleep(300);
 
     const pdf = await page.pdf({
       format: "A4",

@@ -3,7 +3,7 @@ import path from "path";
 
 const nextConfig: NextConfig = {
   outputFileTracingRoot: path.join(__dirname),
-  serverExternalPackages: ["playwright", "@sparticuz/chromium"],
+  serverExternalPackages: ["playwright", "puppeteer-core", "@sparticuz/chromium"],
   experimental: {
     serverActions: {
       bodySizeLimit: "25mb",
