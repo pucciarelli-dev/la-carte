@@ -6,7 +6,7 @@
     "dev": "tsx scripts/dev.ts",
     "dev:next": "next dev",
     "build": "prisma generate && next build",
-    "start": "npx playwright install chromium && prisma db push && next start",
+    "start": "prisma db push && next start",
     "postinstall": "prisma generate",
     "lint": "next lint",
     "db:generate": "prisma generate",

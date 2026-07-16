@@ -1,5 +1,3 @@
-import { chromium, type Browser } from "playwright";
-import { execSync } from "child_process";
 import type { FtpPublishSettings } from "@/lib/ftp-settings";
 
 export type StaticMenuFile = {
@@ -36,12 +34,17 @@ function absolutizeHtml(html: string, assetBaseUrl: string) {
       `url(${quote}${assetBaseUrl}${path}${quote})`
   );
 
+  // Drop Next.js client runtime — static host has no hydration.
   next = next.replace(
     /<script\b[^>]*src=["'][^"']*\/_next\/[^"']+["'][^>]*>\s*<\/script>/gi,
     ""
   );
   next = next.replace(
     /<script\b[^>]*>\s*self\.__next_f[\s\S]*?<\/script>/gi,
+    ""
+  );
+  next = next.replace(
+    /<script\b[^>]*>[\s\S]*?__NEXT_DATA__[\s\S]*?<\/script>/gi,
     ""
   );
 
@@ -66,71 +69,32 @@ function injectLanguageSwitcher(html: string, current: "it" | "en") {
   return html.replace(/<\/body>/i, `${script}</body>`);
 }
 
-async function launchBrowser(): Promise<Browser> {
-  try {
-    return await chromium.launch({
-      headless: true,
-      args: ["--no-sandbox", "--disable-setuid-sandbox"],
-    });
-  } catch (firstError) {
-    try {
-      execSync("npx playwright install chromium", {
-        stdio: "pipe",
-        timeout: 180_000,
-      });
-      return await chromium.launch({
-        headless: true,
-        args: ["--no-sandbox", "--disable-setuid-sandbox"],
-      });
-    } catch {
-      const detail =
-        firstError instanceof Error
-          ? firstError.message
-          : "Chromium non disponibile";
-      throw new Error(
-        `Impossibile avviare Chromium per la pubblicazione statica. (${detail})`
-      );
-    }
-  }
-}
-
 async function captureLocaleHtml(
-  browser: Browser,
   pageUrl: string,
   assetBaseUrl: string,
   publicHost: string
 ): Promise<string> {
-  const page = await browser.newPage();
-  try {
-    await page.setExtraHTTPHeaders({
+  const response = await fetch(pageUrl, {
+    headers: {
+      Accept: "text/html",
       "x-forwarded-host": publicHost,
       "x-tenant-host": publicHost,
-    });
+    },
+    cache: "no-store",
+  });
 
-    const response = await page.goto(pageUrl, {
-      waitUntil: "networkidle",
-      timeout: 90_000,
-    });
-
-    if (!response || !response.ok()) {
-      throw new Error(
-        `Pagina menu non disponibile (${response?.status() ?? "nessuna risposta"}) su ${pageUrl}`
-      );
-    }
-
-    await page.waitForSelector("main", { timeout: 30_000 });
-
-    await page.evaluate(() => {
-      document
-        .querySelectorAll<HTMLElement>('button[data-state="closed"]')
-        .forEach((button) => button.click());
-    });
-    await page.waitForTimeout(500);
-
-    return absolutizeHtml(await page.content(), assetBaseUrl);
-  } finally {
-    await page.close();
+  if (!response.ok) {
+    throw new Error(
+      `Pagina menu non disponibile (${response.status}) su ${pageUrl}`
+    );
   }
+
+  const html = await response.text();
+  if (html.length < 200) {
+    throw new Error(`HTML menu vuoto o non valido da ${pageUrl}`);
+  }
+
+  return absolutizeHtml(html, assetBaseUrl);
 }
 
 export async function generateStaticMenuFiles(input: {
@@ -150,35 +114,21 @@ export async function generateStaticMenuFiles(input: {
   const itUrl = `${internalBase}/menu/${input.menuSlug}?preview=true&embed=1&ftp=1`;
   const enUrl = `${internalBase}/menu/${input.menuSlug}?preview=true&embed=1&ftp=1&lang=en`;
 
-  const browser = await launchBrowser();
-  try {
-    // Sequential: Railway memory is limited; two Chromium instances often OOM.
-    const itHtml = await captureLocaleHtml(
-      browser,
-      itUrl,
-      assetBase,
-      publicHost
-    );
-    const enHtml = await captureLocaleHtml(
-      browser,
-      enUrl,
-      assetBase,
-      publicHost
-    );
+  const [itHtml, enHtml] = await Promise.all([
+    captureLocaleHtml(itUrl, assetBase, publicHost),
+    captureLocaleHtml(enUrl, assetBase, publicHost),
+  ]);
 
-    return [
-      {
-        remotePath: "index.html",
-        content: Buffer.from(injectLanguageSwitcher(itHtml, "it"), "utf8"),
-        contentType: "text/html; charset=utf-8",
-      },
-      {
-        remotePath: "en.html",
-        content: Buffer.from(injectLanguageSwitcher(enHtml, "en"), "utf8"),
-        contentType: "text/html; charset=utf-8",
-      },
-    ];
-  } finally {
-    await browser.close();
-  }
+  return [
+    {
+      remotePath: "index.html",
+      content: Buffer.from(injectLanguageSwitcher(itHtml, "it"), "utf8"),
+      contentType: "text/html; charset=utf-8",
+    },
+    {
+      remotePath: "en.html",
+      content: Buffer.from(injectLanguageSwitcher(enHtml, "en"), "utf8"),
+      contentType: "text/html; charset=utf-8",
+    },
+  ];
 }
