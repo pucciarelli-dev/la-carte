@@ -786,6 +786,7 @@ export async function publishMenuAction(
       const { uploadStaticMenuViaFtp } = await import("@/lib/ftp-upload");
       const files = await generateStaticMenuFiles({
         menuSlug: existing.slug,
+        publishPath,
         ftp,
       });
       const uploaded = await uploadStaticMenuViaFtp({
