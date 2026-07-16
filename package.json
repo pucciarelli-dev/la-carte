@@ -5,8 +5,9 @@
   "scripts": {
     "dev": "tsx scripts/dev.ts",
     "dev:next": "next dev",
-    "build": "next build",
-    "start": "next start",
+    "build": "prisma generate && next build",
+    "start": "prisma db push && next start",
+    "postinstall": "prisma generate",
     "lint": "next lint",
     "db:generate": "prisma generate",
     "db:push": "prisma db push",
@@ -21,6 +22,7 @@
     "@dnd-kit/utilities": "^3.2.2",
     "@hookform/resolvers": "^5.0.1",
     "@prisma/client": "^6.9.0",
+    "prisma": "^6.9.0",
     "@radix-ui/react-accordion": "^1.2.16",
     "@radix-ui/react-alert-dialog": "^1.1.14",
     "@radix-ui/react-avatar": "^1.1.10",
@@ -65,7 +67,6 @@
     "embedded-postgres": "^18.4.0-beta.17",
     "eslint": "^9.28.0",
     "eslint-config-next": "^15.3.3",
-    "prisma": "^6.9.0",
     "tailwindcss": "^4.1.8",
     "tsx": "^4.19.4",
     "typescript": "^5.8.3"
