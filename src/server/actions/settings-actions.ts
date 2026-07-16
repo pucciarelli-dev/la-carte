@@ -97,3 +97,28 @@ export async function updateMenuAllergenLegendAction(
   revalidatePath(`/menu/${menu.slug}`);
   return parseMenuAllergenLegend(parsed);
 }
+
+const ftpSettingsSchema = z.object({
+  host: z.string().min(1),
+  port: z.coerce.number().int().min(1).max(65535).default(21),
+  user: z.string().min(1),
+  password: z.string().optional(),
+  secure: z.boolean().default(true),
+  remoteBasePath: z.string().min(1),
+  publicBaseUrl: z.string().url(),
+});
+
+export async function getFtpSettingsAction() {
+  const session = await requireAuth();
+  const { getFtpPublishSettingsPublic } = await import("@/lib/ftp-settings");
+  return getFtpPublishSettingsPublic(session.user.tenantId);
+}
+
+export async function updateFtpSettingsAction(data: unknown) {
+  const session = await requireAuth();
+  const parsed = ftpSettingsSchema.parse(data);
+  const { updateFtpPublishSettings } = await import("@/lib/ftp-settings");
+  const result = await updateFtpPublishSettings(session.user.tenantId, parsed);
+  revalidatePath("/dashboard/settings");
+  return result;
+}

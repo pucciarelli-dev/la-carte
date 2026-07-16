@@ -696,15 +696,127 @@ export async function reorderDrinkItems(categoryId: string, data: unknown) {
 
 // ─── Publish & versions ─────────────────────────────────────────────────────
 
-export async function publishMenuAction(menuId: string) {
+export async function publishMenuAction(
+  menuId: string,
+  options?: { staticPublishPath?: string }
+) {
   const session = await requireAuth();
+
+  const existing = await prisma.menu.findFirst({
+    where: { id: menuId, tenantId: session.user.tenantId },
+    select: { id: true, slug: true, type: true, staticPublishPath: true },
+  });
+  if (!existing) {
+    throw new Error("Menu non trovato");
+  }
+
+  const {
+    defaultStaticPublishPath,
+    normalizeStaticPublishPath,
+    isValidStaticPublishPath,
+    buildPublicMenuUrl,
+  } = await import("@/lib/ftp-publish-path");
+  const { getFtpPublishSettings, isFtpConfigured } = await import(
+    "@/lib/ftp-settings"
+  );
+
+  const publishPath = normalizeStaticPublishPath(
+    options?.staticPublishPath?.trim() ||
+      existing.staticPublishPath ||
+      defaultStaticPublishPath(existing.type)
+  );
+
+  if (!isValidStaticPublishPath(publishPath)) {
+    throw new Error(
+      "Percorso pubblicazione non valido. Usa solo lettere, numeri, - e /."
+    );
+  }
+
+  if (publishPath !== existing.staticPublishPath) {
+    await prisma.menu.update({
+      where: { id: existing.id },
+      data: { staticPublishPath: publishPath },
+    });
+  }
+
   const version = await publishMenu(
     menuId,
     session.user.tenantId,
     session.user.id
   );
+
+  revalidateMenuPaths(existing.slug);
   revalidatePath("/dashboard");
-  return version;
+
+  const ftp = await getFtpPublishSettings(session.user.tenantId);
+  if (!isFtpConfigured(ftp)) {
+    return {
+      version,
+      ftpUploaded: false,
+      publicUrl: null as string | null,
+      message:
+        "Menu pubblicato su La Carte. Configura FTP in Impostazioni per caricarlo sul sito.",
+    };
+  }
+
+  try {
+    const { generateStaticMenuFiles } = await import(
+      "@/lib/generate-static-menu"
+    );
+    const { uploadStaticMenuViaFtp } = await import("@/lib/ftp-upload");
+    const files = await generateStaticMenuFiles({
+      menuSlug: existing.slug,
+      ftp,
+    });
+    await uploadStaticMenuViaFtp({
+      ftp,
+      publishPath,
+      files,
+    });
+
+    return {
+      version,
+      ftpUploaded: true,
+      publicUrl: buildPublicMenuUrl(ftp.publicBaseUrl, publishPath),
+      message: "Menu pubblicato e caricato via FTP.",
+    };
+  } catch (error) {
+    const detail =
+      error instanceof Error ? error.message : "Errore sconosciuto FTP";
+    return {
+      version,
+      ftpUploaded: false,
+      publicUrl: null as string | null,
+      message: `Menu pubblicato su La Carte, ma upload FTP fallito: ${detail}`,
+    };
+  }
+}
+
+export async function updateMenuStaticPublishPathAction(
+  menuId: string,
+  staticPublishPath: string
+) {
+  const session = await requireAuth();
+  const {
+    normalizeStaticPublishPath,
+    isValidStaticPublishPath,
+  } = await import("@/lib/ftp-publish-path");
+
+  const path = normalizeStaticPublishPath(staticPublishPath);
+  if (!isValidStaticPublishPath(path)) {
+    throw new Error(
+      "Percorso non valido. Usa solo lettere, numeri, trattini e /."
+    );
+  }
+
+  const menu = await prisma.menu.update({
+    where: { id: menuId, tenantId: session.user.tenantId },
+    data: { staticPublishPath: path },
+    select: { slug: true, staticPublishPath: true },
+  });
+
+  revalidateMenuPaths(menu.slug);
+  return menu;
 }
 
 export async function restoreVersionAction(versionId: string) {

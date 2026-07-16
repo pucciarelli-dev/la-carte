@@ -5,6 +5,12 @@ import { parseMenuTypography } from "@/lib/typography";
 import { parseMenuIntro } from "@/lib/menu-intro";
 import { parseMenuAllergenLegend } from "@/lib/allergens";
 import { getTenantBranding } from "@/lib/branding";
+import {
+  getFtpPublishSettings,
+  getFtpPublishSettingsPublic,
+  isFtpConfigured,
+} from "@/lib/ftp-settings";
+import { defaultStaticPublishPath } from "@/lib/ftp-publish-path";
 import { DinnerMenuEditor } from "@/components/dashboard/dinner-menu-editor";
 import { WineMenuEditor } from "@/components/dashboard/wine-menu-editor";
 import { DrinkMenuEditor } from "@/components/dashboard/drink-menu-editor";
@@ -20,9 +26,11 @@ export default async function MenuEditorPage({ params }: PageProps) {
   const { slug } = await params;
 
   const session = await requireAuth();
-  const [menu, branding] = await Promise.all([
+  const [menu, branding, ftpPublic, ftpFull] = await Promise.all([
     getMenuBySlug(session.user.tenantId, slug),
     getTenantBranding(session.user.tenantId),
+    getFtpPublishSettingsPublic(session.user.tenantId),
+    getFtpPublishSettings(session.user.tenantId),
   ]);
   if (!menu) notFound();
 
@@ -46,7 +54,13 @@ export default async function MenuEditorPage({ params }: PageProps) {
         menuId={menu.id}
         menuSlug={menu.slug}
         menuName={menu.name}
+        menuType={menu.type}
         status={menu.status}
+        staticPublishPath={
+          menu.staticPublishPath || defaultStaticPublishPath(menu.type)
+        }
+        ftpPublicBaseUrl={ftpPublic.publicBaseUrl}
+        ftpConfigured={isFtpConfigured(ftpFull)}
         versions={versions}
         layoutSettings={{
           menuType: menu.type,

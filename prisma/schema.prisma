@@ -126,6 +126,7 @@ model Menu {
   intro               Json?
   status              MenuStatus @default(DRAFT)
   sortOrder           Int        @default(0)
+  staticPublishPath   String?
   publishedVersionId  String?    @unique
   createdAt           DateTime   @default(now())
   updatedAt           DateTime   @updatedAt

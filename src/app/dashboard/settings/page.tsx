@@ -1,15 +1,18 @@
 import { requireAuth } from "@/lib/auth-utils";
+import { getFtpPublishSettingsPublic } from "@/lib/ftp-settings";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { FtpSettingsForm } from "@/components/dashboard/ftp-settings-form";
 
 export default async function SettingsPage() {
   const session = await requireAuth();
+  const ftpSettings = await getFtpPublishSettingsPublic(session.user.tenantId);
 
   return (
     <div className="space-y-6">
       <div>
         <h1 className="text-2xl font-bold tracking-tight">Impostazioni</h1>
         <p className="text-muted-foreground">
-          Configura le impostazioni del ristorante
+          Configura le impostazioni del ristorante e la pubblicazione FTP
         </p>
       </div>
 
@@ -29,6 +32,8 @@ export default async function SettingsPage() {
           </div>
         </CardContent>
       </Card>
+
+      <FtpSettingsForm initial={ftpSettings} />
     </div>
   );
 }

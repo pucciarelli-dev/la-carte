@@ -27,7 +27,7 @@ import { cn } from "@/lib/utils";
 
 interface PageProps {
   params: Promise<{ slug: string }>;
-  searchParams: Promise<{ preview?: string; embed?: string; view?: string; lang?: string; pdf?: string }>;
+  searchParams: Promise<{ preview?: string; embed?: string; view?: string; lang?: string; pdf?: string; ftp?: string }>;
 }
 
 export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
@@ -49,7 +49,7 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
 
 export default async function PublicMenuPage({ params, searchParams }: PageProps) {
   const { slug } = await params;
-  const { preview, embed, lang, pdf } = await searchParams;
+  const { preview, embed, lang, pdf, ftp } = await searchParams;
 
   const tenant = await resolveTenantFromRequest();
   if (!tenant) notFound();
@@ -60,7 +60,10 @@ export default async function PublicMenuPage({ params, searchParams }: PageProps
   const isPreview = preview === "true";
   const isEmbed = embed === "1" || embed === "true";
   const isPdfExport = pdf === "1";
+  const isFtpExport = ftp === "1";
   const locale = parseMenuLocale(lang);
+  const expandWineAccordions =
+    (isPdfExport || isFtpExport) && menuExists.type === "WINE";
 
   if (isPreview && !isEmbed && !isPdfExport) {
     return (
@@ -199,7 +202,7 @@ export default async function PublicMenuPage({ params, searchParams }: PageProps
           menuName={snapshot.menuName}
           menuType={snapshot.menuType}
           locale={locale}
-          expandWineAccordions={isPdfExport && snapshot.menuType === "WINE"}
+          expandWineAccordions={expandWineAccordions}
         />
       </main>
 
