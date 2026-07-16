@@ -176,6 +176,66 @@ export async function deleteMenuAction(menuId: string) {
   return { success: true };
 }
 
+export async function updateMenuIdentityAction(
+  menuId: string,
+  data: { name: string; slug: string }
+) {
+  const session = await requireAuth();
+
+  const existing = await prisma.menu.findFirst({
+    where: { id: menuId, tenantId: session.user.tenantId },
+    select: { id: true, slug: true, name: true },
+  });
+  if (!existing) {
+    throw new Error("Menu non trovato");
+  }
+
+  const name = data.name.trim();
+  if (!name) {
+    throw new Error("Nome obbligatorio");
+  }
+
+  const slug = normalizeMenuSlug(data.slug.trim() || name);
+  if (!/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(slug) || slug.length < 2) {
+    throw new Error(
+      "Slug non valido. Usa solo lettere minuscole, numeri e trattini."
+    );
+  }
+
+  if (slug !== existing.slug) {
+    const clash = await prisma.menu.findFirst({
+      where: {
+        tenantId: session.user.tenantId,
+        slug,
+        NOT: { id: menuId },
+      },
+      select: { id: true },
+    });
+    if (clash) {
+      throw new Error("Esiste già un menu con questo slug");
+    }
+  }
+
+  const menu = await prisma.menu.update({
+    where: { id: menuId },
+    data: { name, slug },
+    select: { id: true, name: true, slug: true },
+  });
+
+  if (existing.slug !== menu.slug) {
+    revalidateMenuPaths(existing.slug);
+  }
+  revalidateMenuPaths(menu.slug);
+
+  return {
+    id: menu.id,
+    name: menu.name,
+    slug: menu.slug,
+    slugChanged: existing.slug !== menu.slug,
+    previousSlug: existing.slug,
+  };
+}
+
 // ─── Categories ─────────────────────────────────────────────────────────────
 
 export async function createCategory(menuId: string, data: unknown) {

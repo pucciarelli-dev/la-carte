@@ -15,6 +15,7 @@ import { DinnerMenuEditor } from "@/components/dashboard/dinner-menu-editor";
 import { WineMenuEditor } from "@/components/dashboard/wine-menu-editor";
 import { DrinkMenuEditor } from "@/components/dashboard/drink-menu-editor";
 import { PublishBar } from "@/components/dashboard/publish-bar";
+import { MenuIdentityEditor } from "@/components/dashboard/menu-identity-editor";
 import { MenuEditorShell } from "@/components/dashboard/menu-editor-shell";
 import { MenuEditorLocaleBanner } from "@/components/dashboard/menu-editor-language";
 
@@ -43,12 +44,11 @@ export default async function MenuEditorPage({ params }: PageProps) {
   return (
     <MenuEditorShell>
       <div>
-        <div className="mb-6">
-          <h1 className="text-2xl font-bold tracking-tight">{menu.name}</h1>
-          <p className="text-muted-foreground">
-            Modifica il menu e pubblica quando sei pronto
-          </p>
-        </div>
+        <MenuIdentityEditor
+          menuId={menu.id}
+          menuName={menu.name}
+          menuSlug={menu.slug}
+        />
 
         <PublishBar
         menuId={menu.id}
