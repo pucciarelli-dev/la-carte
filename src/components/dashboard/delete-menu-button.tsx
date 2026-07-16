@@ -20,7 +20,6 @@ import { pressable } from "@/lib/ui-motion";
 interface DeleteMenuButtonProps {
   menuId: string;
   menuName: string;
-  menuSlug: string;
   redirectTo?: string;
   variant?: "icon" | "button";
   className?: string;
@@ -29,7 +28,6 @@ interface DeleteMenuButtonProps {
 export function DeleteMenuButton({
   menuId,
   menuName,
-  menuSlug,
   redirectTo = "/dashboard",
   variant = "icon",
   className,
@@ -98,10 +96,9 @@ export function DeleteMenuButton({
           <SheetHeader>
             <SheetTitle>Elimina menu</SheetTitle>
             <SheetDescription>
-              Stai per eliminare <strong>{menuName}</strong> (
-              <span className="font-mono text-xs">/menu/{menuSlug}</span>
-              ). Verranno rimossi anche categorie, prodotti e versioni
-              pubblicate. L&apos;azione non è reversibile.
+              Stai per eliminare <strong>{menuName}</strong>. Verranno rimossi
+              anche categorie, prodotti e versioni pubblicate. L&apos;azione non
+              è reversibile.
             </SheetDescription>
           </SheetHeader>
           <SheetBody className="space-y-4">

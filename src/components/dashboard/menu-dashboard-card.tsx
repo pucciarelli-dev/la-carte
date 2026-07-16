@@ -35,7 +35,6 @@ export function MenuDashboardCard({ menu }: MenuDashboardCardProps) {
         <DeleteMenuButton
           menuId={menu.id}
           menuName={menu.name}
-          menuSlug={menu.slug}
         />
       </div>
 
@@ -48,7 +47,7 @@ export function MenuDashboardCard({ menu }: MenuDashboardCardProps) {
             <div>
               <CardTitle className="text-base">{menu.name}</CardTitle>
               <CardDescription>
-                {menu.categoryCount} categorie · /menu/{menu.slug}
+                {menu.categoryCount} categorie
               </CardDescription>
             </div>
           </div>

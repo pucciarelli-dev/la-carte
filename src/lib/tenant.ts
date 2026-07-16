@@ -4,10 +4,29 @@ import { prisma } from "@/lib/db";
 const DEFAULT_TENANT_SLUG =
   process.env.DEFAULT_TENANT_SLUG ?? "demo";
 
+function isLocalHostname(hostname: string) {
+  return (
+    hostname === "localhost" ||
+    hostname === "127.0.0.1" ||
+    hostname === "0.0.0.0" ||
+    hostname === "::1"
+  );
+}
+
 export async function resolveTenantFromRequest() {
   const headersList = await headers();
-  const host = headersList.get("host") ?? "localhost:3000";
-  const hostname = host.split(":")[0];
+  const forwardedHost =
+    headersList.get("x-forwarded-host") ?? headersList.get("x-tenant-host");
+  const host =
+    forwardedHost ?? headersList.get("host") ?? "localhost:3000";
+  const hostname = host.split(":")[0].trim().toLowerCase();
+
+  // Local / internal publish capture → default tenant (skip IP-as-subdomain traps)
+  if (isLocalHostname(hostname)) {
+    return prisma.tenant.findUnique({
+      where: { slug: DEFAULT_TENANT_SLUG },
+    });
+  }
 
   // Custom domain
   const byDomain = await prisma.tenant.findFirst({
@@ -27,7 +46,7 @@ export async function resolveTenantFromRequest() {
     }
   }
 
-  // Fallback for local dev
+  // Fallback for local / single-tenant deploys
   return prisma.tenant.findUnique({
     where: { slug: DEFAULT_TENANT_SLUG },
   });

@@ -124,16 +124,30 @@ export function PublishBar({
       const result = await publishMenuAction(menuId, {
         staticPublishPath: pathDraft,
       });
-      setPublishMessage(result.message);
-      if (result.publicUrl) {
-        setPublishMessage(`${result.message} → ${result.publicUrl}`);
+
+      if (!result.ok) {
+        setPublishError(result.message);
+        return;
       }
+
+      setPublishMessage(
+        result.publicUrl
+          ? `${result.message} → ${result.publicUrl}`
+          : result.message
+      );
       setConfirmOpen(false);
       window.location.reload();
     } catch (err) {
-      setPublishError(
-        err instanceof Error ? err.message : "Pubblicazione non riuscita"
-      );
+      const message =
+        err instanceof Error
+          ? err.message
+          : typeof err === "object" &&
+              err &&
+              "message" in err &&
+              typeof (err as { message: unknown }).message === "string"
+            ? (err as { message: string }).message
+            : "Pubblicazione non riuscita. Controlla i log Railway.";
+      setPublishError(message);
     } finally {
       setLoading(null);
     }
@@ -210,7 +224,6 @@ export function PublishBar({
           <DeleteMenuButton
             menuId={menuId}
             menuName={menuName}
-            menuSlug={menuSlug}
             variant="button"
           />
         </div>

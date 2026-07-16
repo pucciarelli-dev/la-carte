@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { Loader2, Plus } from "lucide-react";
 import type { MenuType } from "@prisma/client";
@@ -32,22 +32,12 @@ export function CreateMenuSheet() {
   const { notifySaved } = useSaveToast();
   const [open, setOpen] = useState(false);
   const [name, setName] = useState("");
-  const [slug, setSlug] = useState("");
-  const [slugTouched, setSlugTouched] = useState(false);
   const [type, setType] = useState<MenuType>("DINNER");
   const [error, setError] = useState<string | null>(null);
   const [isCreating, setIsCreating] = useState(false);
 
-  useEffect(() => {
-    if (!slugTouched) {
-      setSlug(slugifyMenuName(name));
-    }
-  }, [name, slugTouched]);
-
   const reset = () => {
     setName("");
-    setSlug("");
-    setSlugTouched(false);
     setType("DINNER");
     setError(null);
   };
@@ -58,7 +48,11 @@ export function CreateMenuSheet() {
     setIsCreating(true);
 
     try {
-      const result = await createMenuAction({ name, slug, type });
+      const result = await createMenuAction({
+        name,
+        slug: slugifyMenuName(name),
+        type,
+      });
       await refreshMenus();
       router.refresh();
       reset();
@@ -131,24 +125,6 @@ export function CreateMenuSheet() {
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="create-menu-slug">Slug URL</Label>
-              <Input
-                id="create-menu-slug"
-                value={slug}
-                onChange={(e) => {
-                  setSlugTouched(true);
-                  setSlug(slugifyMenuName(e.target.value));
-                }}
-                placeholder="menu-pranzo"
-                required
-                disabled={isCreating}
-              />
-              <p className="text-xs text-muted-foreground">
-                Il menu sarà disponibile su /menu/{slug || "..."}
-              </p>
-            </div>
-
-            <div className="space-y-2">
               <Label>Tipo menu</Label>
               <div className="grid gap-2">
                 {MENU_TYPE_OPTIONS.map((option) => (
@@ -188,7 +164,7 @@ export function CreateMenuSheet() {
             <Button
               type="submit"
               className={cn("w-full", pressable)}
-              disabled={isCreating || !name.trim() || !slug.trim()}
+              disabled={isCreating || !name.trim()}
             >
               {isCreating ? (
                 <>

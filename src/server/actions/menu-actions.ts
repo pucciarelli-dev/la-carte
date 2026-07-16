@@ -177,66 +177,6 @@ export async function deleteMenuAction(menuId: string) {
   return { success: true };
 }
 
-export async function updateMenuIdentityAction(
-  menuId: string,
-  data: { name: string; slug: string }
-) {
-  const session = await requireAuth();
-
-  const existing = await prisma.menu.findFirst({
-    where: { id: menuId, tenantId: session.user.tenantId },
-    select: { id: true, slug: true, name: true },
-  });
-  if (!existing) {
-    throw new Error("Menu non trovato");
-  }
-
-  const name = data.name.trim();
-  if (!name) {
-    throw new Error("Nome obbligatorio");
-  }
-
-  const slug = normalizeMenuSlug(data.slug.trim() || name);
-  if (!/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(slug) || slug.length < 2) {
-    throw new Error(
-      "Slug non valido. Usa solo lettere minuscole, numeri e trattini."
-    );
-  }
-
-  if (slug !== existing.slug) {
-    const clash = await prisma.menu.findFirst({
-      where: {
-        tenantId: session.user.tenantId,
-        slug,
-        NOT: { id: menuId },
-      },
-      select: { id: true },
-    });
-    if (clash) {
-      throw new Error("Esiste già un menu con questo slug");
-    }
-  }
-
-  const menu = await prisma.menu.update({
-    where: { id: menuId },
-    data: { name, slug },
-    select: { id: true, name: true, slug: true },
-  });
-
-  if (existing.slug !== menu.slug) {
-    revalidateMenuPaths(existing.slug);
-  }
-  revalidateMenuPaths(menu.slug);
-
-  return {
-    id: menu.id,
-    name: menu.name,
-    slug: menu.slug,
-    slugChanged: existing.slug !== menu.slug,
-    previousSlug: existing.slug,
-  };
-}
-
 // ─── Categories ─────────────────────────────────────────────────────────────
 
 export async function createCategory(menuId: string, data: unknown) {
@@ -760,7 +700,13 @@ export async function reorderDrinkItems(categoryId: string, data: unknown) {
 export async function publishMenuAction(
   menuId: string,
   options?: { staticPublishPath?: string }
-) {
+): Promise<{
+  ok: boolean;
+  version?: { id: string; version: number };
+  ftpUploaded: boolean;
+  publicUrl: string | null;
+  message: string;
+}> {
   const session = await requireAuth();
 
   const existing = await prisma.menu.findFirst({
@@ -768,7 +714,12 @@ export async function publishMenuAction(
     select: { id: true, slug: true, type: true, staticPublishPath: true },
   });
   if (!existing) {
-    throw new Error("Menu non trovato");
+    return {
+      ok: false,
+      ftpUploaded: false,
+      publicUrl: null,
+      message: "Menu non trovato",
+    };
   }
 
   const {
@@ -788,9 +739,13 @@ export async function publishMenuAction(
   );
 
   if (!isValidStaticPublishPath(publishPath)) {
-    throw new Error(
-      "Percorso pubblicazione non valido. Usa solo lettere, numeri, - e /."
-    );
+    return {
+      ok: false,
+      ftpUploaded: false,
+      publicUrl: null,
+      message:
+        "Percorso pubblicazione non valido. Usa solo lettere, numeri, - e /.",
+    };
   }
 
   if (publishPath !== existing.staticPublishPath) {
@@ -803,12 +758,24 @@ export async function publishMenuAction(
   const ftp = await getFtpPublishSettings(session.user.tenantId);
   const ftpReady = isFtpConfigured(ftp);
 
-  // Create a new version first, but do NOT make it live yet.
-  const pendingVersion = await createMenuVersion(
-    menuId,
-    session.user.tenantId,
-    session.user.id
-  );
+  let pendingVersion;
+  try {
+    pendingVersion = await createMenuVersion(
+      menuId,
+      session.user.tenantId,
+      session.user.id
+    );
+  } catch (error) {
+    return {
+      ok: false,
+      ftpUploaded: false,
+      publicUrl: null,
+      message:
+        error instanceof Error
+          ? `Impossibile creare la versione: ${error.message}`
+          : "Impossibile creare la versione",
+    };
+  }
 
   if (ftpReady) {
     try {
@@ -826,43 +793,59 @@ export async function publishMenuAction(
         files,
       });
     } catch (error) {
-      // Keep previous published version online. Drop the unused pending version.
-      await prisma.menuVersion.delete({ where: { id: pendingVersion.id } }).catch(
-        () => undefined
-      );
+      await prisma.menuVersion
+        .delete({ where: { id: pendingVersion.id } })
+        .catch(() => undefined);
       const detail =
         error instanceof Error ? error.message : "Errore sconosciuto FTP";
-      throw new Error(
-        `Pubblicazione annullata: upload FTP fallito. Il menu online non è stato modificato. (${detail})`
-      );
+      return {
+        ok: false,
+        ftpUploaded: false,
+        publicUrl: null,
+        message: `Pubblicazione annullata: upload FTP fallito. Il menu online non è stato modificato. (${detail})`,
+      };
     }
   }
 
-  const version = await activatePublishedVersion(
-    menuId,
-    session.user.tenantId,
-    pendingVersion.id
-  );
+  try {
+    const version = await activatePublishedVersion(
+      menuId,
+      session.user.tenantId,
+      pendingVersion.id
+    );
 
-  revalidateMenuPaths(existing.slug);
-  revalidatePath("/dashboard");
+    revalidateMenuPaths(existing.slug);
+    revalidatePath("/dashboard");
 
-  if (!ftpReady) {
+    if (!ftpReady) {
+      return {
+        ok: true,
+        version: { id: version.id, version: version.version },
+        ftpUploaded: false,
+        publicUrl: null,
+        message:
+          "Menu pubblicato su La Carte. Configura FTP in Impostazioni per caricarlo sul sito.",
+      };
+    }
+
     return {
-      version,
-      ftpUploaded: false,
-      publicUrl: null as string | null,
+      ok: true,
+      version: { id: version.id, version: version.version },
+      ftpUploaded: true,
+      publicUrl: buildPublicMenuUrl(ftp.publicBaseUrl, publishPath),
+      message: "Menu pubblicato e caricato via FTP.",
+    };
+  } catch (error) {
+    return {
+      ok: false,
+      ftpUploaded: ftpReady,
+      publicUrl: null,
       message:
-        "Menu pubblicato su La Carte. Configura FTP in Impostazioni per caricarlo sul sito.",
+        error instanceof Error
+          ? `Upload OK ma attivazione versione fallita: ${error.message}`
+          : "Attivazione versione fallita",
     };
   }
-
-  return {
-    version,
-    ftpUploaded: true,
-    publicUrl: buildPublicMenuUrl(ftp.publicBaseUrl, publishPath),
-    message: "Menu pubblicato e caricato via FTP.",
-  };
 }
 
 export async function updateMenuStaticPublishPathAction(
