@@ -21,7 +21,7 @@ import {
   MENU_PRINT_CATEGORY_HAS_FOOTER_CLASS,
 } from "@/lib/menu-print";
 
-const WINE_ACCORDION_DURATION_MS = 600;
+const WINE_ACCORDION_OPEN_MS = 600;
 const WINE_ACCORDION_EASING = "cubic-bezier(0.4, 0, 0.2, 1)";
 
 function prefersReducedMotion() {
@@ -58,7 +58,7 @@ function pinAccordionSectionToTop(section: HTMLElement, behavior: ScrollBehavior
 
   const startedAt = performance.now();
   const pin = () => {
-    if (performance.now() - startedAt >= WINE_ACCORDION_DURATION_MS) return;
+    if (performance.now() - startedAt >= WINE_ACCORDION_OPEN_MS) return;
     scrollAccordionSectionToTop(section, "auto");
     requestAnimationFrame(pin);
   };
@@ -235,14 +235,14 @@ export function BistrotWineCategoriesAccordion({
                     WINE_ACCORDION_CONTENT_CLASS,
                     "wine-accordion-panel-radix"
                   )}
-                  style={{
-                    animationDuration: reducedMotion
+                  style={
+                    reducedMotion
                       ? undefined
-                      : `${WINE_ACCORDION_DURATION_MS}ms`,
-                    animationTimingFunction: reducedMotion
-                      ? undefined
-                      : WINE_ACCORDION_EASING,
-                  }}
+                      : {
+                          // Durations come from CSS (open slower, close faster)
+                          animationTimingFunction: WINE_ACCORDION_EASING,
+                        }
+                  }
                 >
                   <div className="pt-10">
                     <WineCategoryList
@@ -373,14 +373,14 @@ export function ClassicWineCategoriesAccordion({
                     WINE_ACCORDION_CONTENT_CLASS,
                     "wine-accordion-panel-radix"
                   )}
-                  style={{
-                    animationDuration: reducedMotion
+                  style={
+                    reducedMotion
                       ? undefined
-                      : `${WINE_ACCORDION_DURATION_MS}ms`,
-                    animationTimingFunction: reducedMotion
-                      ? undefined
-                      : WINE_ACCORDION_EASING,
-                  }}
+                      : {
+                          // Durations come from CSS (open slower, close faster)
+                          animationTimingFunction: WINE_ACCORDION_EASING,
+                        }
+                  }
                 >
                   <div className="space-y-5 pt-6">
                     {items.map((item) => (

@@ -371,7 +371,7 @@ main:not(.menu-pdf-main) .menu-print-page-section:not(.menu-print-page-colored) 
 
 .wine-accordion-panel-radix[data-state="closed"] {
   animation-name: wine-accordion-slideUp;
-  animation-duration: 600ms;
+  animation-duration: 280ms;
   animation-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
 }
 

@@ -88,7 +88,7 @@ function injectStaticPublishHead(html: string, publishedAt: string, publishId: s
   }
   .wine-accordion-panel-radix[data-state="closed"] {
     animation-name: wine-accordion-slideUp;
-    animation-duration: 600ms;
+    animation-duration: 280ms;
     animation-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
   }
   .wine-accordion-panel-radix[data-state="closed"]:not(.wine-accordion-animating) {
@@ -117,7 +117,8 @@ function injectStaticBehaviors(html: string, current: "it" | "en") {
   const script = `
 <script>
 (function () {
-  var DURATION_MS = 600;
+  var OPEN_MS = 600;
+  var CLOSE_MS = 280;
   var reducedMotion = window.matchMedia &&
     window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 
@@ -183,7 +184,7 @@ function injectStaticBehaviors(html: string, current: "it" | "en") {
     scrollSectionToTop(section, "smooth");
     var startedAt = performance.now();
     function tick() {
-      if (performance.now() - startedAt >= DURATION_MS) return;
+      if (performance.now() - startedAt >= OPEN_MS) return;
       scrollSectionToTop(section, "auto");
       requestAnimationFrame(tick);
     }
@@ -246,7 +247,7 @@ function injectStaticBehaviors(html: string, current: "it" | "en") {
       if (!panel.classList.contains("wine-accordion-animating")) return;
       clearAnim(panel);
       panel.style.height = "auto";
-    }, DURATION_MS + 50);
+    }, OPEN_MS + 50);
   }
 
   function animateClose(panel) {
@@ -288,7 +289,7 @@ function injectStaticBehaviors(html: string, current: "it" | "en") {
       clearAnim(panel);
       panel.style.height = "0px";
       panel.setAttribute("hidden", "");
-    }, DURATION_MS + 50);
+    }, CLOSE_MS + 50);
   }
 
   function setOpen(section, open, options) {
