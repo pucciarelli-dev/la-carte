@@ -4,18 +4,47 @@ import { joinFtpPath } from "@/lib/ftp-publish-path";
 import type { FtpPublishSettings } from "@/lib/ftp-settings";
 import type { StaticMenuFile } from "@/lib/generate-static-menu";
 
-async function dirExists(client: Client, absolutePath: string): Promise<boolean> {
+/**
+ * Create each path segment from the FTP home / root, then leave cwd there.
+ * Absolute ensureDir is unreliable on some hosts (e.g. Aruba).
+ */
+async function ensurePathFromRoot(client: Client, absoluteOrRelative: string) {
+  const parts = absoluteOrRelative
+    .replace(/^\/+|\/+$/g, "")
+    .split("/")
+    .filter(Boolean);
+
+  // Prefer account root; ignore failure if the host is already chrooted.
   try {
-    const list = await client.list(absolutePath);
-    return Array.isArray(list);
+    await client.cd("/");
+  } catch {
+    // stay where login left us
+  }
+
+  for (const part of parts) {
+    const entries = await client.list();
+    const exists = entries.some(
+      (entry) => entry.name === part && entry.isDirectory
+    );
+    if (!exists) {
+      await client.send(`MKD ${part}`);
+    }
+    await client.cd(part);
+  }
+}
+
+async function dirExistsInCwd(client: Client, name: string): Promise<boolean> {
+  try {
+    const entries = await client.list();
+    return entries.some((entry) => entry.name === name && entry.isDirectory);
   } catch {
     return false;
   }
 }
 
-async function removeDirIfExists(client: Client, absolutePath: string) {
-  if (await dirExists(client, absolutePath)) {
-    await client.removeDir(absolutePath);
+async function removeDirInCwd(client: Client, name: string) {
+  if (await dirExistsInCwd(client, name)) {
+    await client.removeDir(name);
   }
 }
 
@@ -31,14 +60,11 @@ export async function uploadStaticMenuViaFtp(input: {
   const client = new Client(60_000);
   client.ftp.verbose = false;
 
-  const base = `/${joinFtpPath(input.ftp.remoteBasePath)}`;
+  const basePath = joinFtpPath(input.ftp.remoteBasePath);
   const liveName = joinFtpPath(input.publishPath);
   const incomingName = `${liveName}__incoming`;
   const previousName = `${liveName}__previous`;
-
-  const liveDir = `/${joinFtpPath(input.ftp.remoteBasePath, liveName)}`;
-  const incomingDir = `/${joinFtpPath(input.ftp.remoteBasePath, incomingName)}`;
-  const previousDir = `/${joinFtpPath(input.ftp.remoteBasePath, previousName)}`;
+  const liveDir = `/${joinFtpPath(basePath, liveName)}`;
 
   try {
     await client.access({
@@ -52,20 +78,24 @@ export async function uploadStaticMenuViaFtp(input: {
         : undefined,
     });
 
-    await removeDirIfExists(client, incomingDir);
-    await client.ensureDir(incomingDir);
+    // Create remoteBasePath if missing (e.g. bistrot.southgarage.com)
+    await ensurePathFromRoot(client, basePath);
+
+    // cwd = base
+    await removeDirInCwd(client, incomingName);
+    await client.send(`MKD ${incomingName}`);
+    await client.cd(incomingName);
 
     for (const file of input.files) {
       const stream = Readable.from(file.content);
-      await client.uploadFrom(stream, `${incomingDir}/${file.remotePath}`);
+      await client.uploadFrom(stream, file.remotePath);
     }
 
-    await client.cd(base);
-    await removeDirIfExists(client, previousDir);
+    await client.cd(".."); // back to base
 
-    const liveExists = await dirExists(client, liveDir);
-    await client.cd(base);
+    await removeDirInCwd(client, previousName);
 
+    const liveExists = await dirExistsInCwd(client, liveName);
     if (liveExists) {
       await client.rename(liveName, previousName);
     }
@@ -75,7 +105,6 @@ export async function uploadStaticMenuViaFtp(input: {
     } catch (error) {
       if (liveExists) {
         try {
-          await client.cd(base);
           await client.rename(previousName, liveName);
         } catch {
           // ignore secondary failure
@@ -84,7 +113,7 @@ export async function uploadStaticMenuViaFtp(input: {
       throw error;
     }
 
-    await removeDirIfExists(client, previousDir);
+    await removeDirInCwd(client, previousName);
 
     return { remoteDir: liveDir };
   } finally {
