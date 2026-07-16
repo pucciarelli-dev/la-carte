@@ -41,29 +41,57 @@ async function listNames(client: Client): Promise<string[]> {
   }
 }
 
-async function dirExistsInCwd(client: Client, name: string): Promise<boolean> {
+/** True if we can CD into `name` from cwd (more reliable than LIST+isDirectory on Aruba). */
+async function childDirExists(client: Client, name: string): Promise<boolean> {
   try {
-    const entries = await client.list();
-    return entries.some((entry) => entry.name === name && entry.isDirectory);
+    await client.cd(name);
+    await client.cdup();
+    return true;
   } catch {
     return false;
   }
 }
 
-async function mkdirIfMissing(client: Client, name: string) {
-  if (await dirExistsInCwd(client, name)) return;
+/**
+ * Create `name` under cwd if missing, then CD into it.
+ * Uses CD probe + MKD + ensureDir — Aruba often lies about directory listings
+ * after folders were deleted from the file manager.
+ */
+async function ensureChildDirAndEnter(client: Client, name: string) {
+  if (await childDirExists(client, name)) {
+    await client.cd(name);
+    return;
+  }
 
   try {
     await client.send(`MKD ${name}`);
   } catch {
-    // Another client / stale listing — re-check below.
+    // May already exist, or LIST was stale — try enter / ensureDir below.
   }
 
-  if (!(await dirExistsInCwd(client, name))) {
+  try {
+    await client.cd(name);
+    return;
+  } catch {
+    // continue
+  }
+
+  try {
+    // basic-ftp: create path relative to cwd and leave cwd at target
+    await client.ensureDir(name);
+    return;
+  } catch {
+    // continue to final probe
+  }
+
+  try {
+    await client.cd(name);
+    return;
+  } catch {
     const pwd = normalizeFtpPwd(await client.pwd());
     const names = await listNames(client);
     throw new Error(
-      `Impossibile creare la cartella "${name}" in ${pwd}. Contenuto: [${names.join(", ") || "vuoto"}]`
+      `Impossibile creare/entrare nella cartella "${name}" in ${pwd}. Contenuto: [${names.join(", ") || "vuoto"}]`
     );
   }
 }
@@ -71,13 +99,12 @@ async function mkdirIfMissing(client: Client, name: string) {
 /** Create missing segments from current cwd; leave cwd at the target base. */
 async function ensureRelativePath(client: Client, segments: string[]) {
   for (const part of segments) {
-    await mkdirIfMissing(client, part);
-    await client.cd(part);
+    await ensureChildDirAndEnter(client, part);
   }
 }
 
 async function removeDirInCwd(client: Client, name: string) {
-  if (!(await dirExistsInCwd(client, name))) return;
+  if (!(await childDirExists(client, name))) return;
   try {
     await client.removeDir(name);
   } catch (error) {
@@ -104,6 +131,50 @@ async function goToBase(
   const segments = remainingBaseSegments(homePwd, basePath);
   await ensureRelativePath(client, segments);
   return normalizeFtpPwd(await client.pwd());
+}
+
+async function uploadFresh(
+  client: Client,
+  liveName: string,
+  files: StaticMenuFile[]
+) {
+  await ensureChildDirAndEnter(client, liveName);
+  await uploadFilesInCwd(client, files);
+}
+
+async function uploadWithSwap(
+  client: Client,
+  liveName: string,
+  incomingName: string,
+  previousName: string,
+  files: StaticMenuFile[]
+) {
+  await ensureChildDirAndEnter(client, incomingName);
+  await uploadFilesInCwd(client, files);
+  await client.cdup();
+
+  try {
+    await client.rename(liveName, previousName);
+  } catch {
+    // Live vanished between check and rename (manual delete) — treat as fresh.
+    await client.rename(incomingName, liveName);
+    await client.cd(liveName);
+    return;
+  }
+
+  try {
+    await client.rename(incomingName, liveName);
+  } catch (error) {
+    try {
+      await client.rename(previousName, liveName);
+    } catch {
+      // ignore secondary failure
+    }
+    throw error;
+  }
+
+  await removeDirInCwd(client, previousName);
+  await client.cd(liveName);
 }
 
 /**
@@ -146,33 +217,28 @@ export async function uploadStaticMenuViaFtp(input: {
     await removeDirInCwd(client, incomingName);
     await removeDirInCwd(client, previousName);
 
-    const liveExists = await dirExistsInCwd(client, liveName);
+    const liveExists = await childDirExists(client, liveName);
 
     if (!liveExists) {
-      // Fresh create (first publish or folders deleted manually)
-      await mkdirIfMissing(client, liveName);
-      await client.cd(liveName);
-      await uploadFilesInCwd(client, input.files);
+      await uploadFresh(client, liveName, input.files);
     } else {
-      // Staging swap — keep previous live until rename succeeds
-      await mkdirIfMissing(client, incomingName);
-      await client.cd(incomingName);
-      await uploadFilesInCwd(client, input.files);
-      await client.cd("..");
-
-      await client.rename(liveName, previousName);
       try {
-        await client.rename(incomingName, liveName);
+        await uploadWithSwap(
+          client,
+          liveName,
+          incomingName,
+          previousName,
+          input.files
+        );
       } catch (error) {
-        try {
-          await client.rename(previousName, liveName);
-        } catch {
-          // ignore secondary failure
+        // Last resort: recreate live folder from scratch
+        await removeDirInCwd(client, incomingName);
+        await removeDirInCwd(client, previousName);
+        if (await childDirExists(client, liveName)) {
+          throw error;
         }
-        throw error;
+        await uploadFresh(client, liveName, input.files);
       }
-      await removeDirInCwd(client, previousName);
-      await client.cd(liveName);
     }
 
     const remoteDir = normalizeFtpPwd(await client.pwd());
