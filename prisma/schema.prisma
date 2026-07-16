@@ -1,0 +1,310 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ─── Multi-tenant ───────────────────────────────────────────────────────────
+
+model Tenant {
+  id        String   @id @default(cuid())
+  name      String
+  slug      String   @unique
+  domain    String?  @unique
+  subdomain String?  @unique
+  logoUrl   String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  users         User[]
+  menus         Menu[]
+  categories    Category[]
+  menuItems     MenuItem[]
+  wineItems     WineItem[]
+  drinkItems    DrinkItem[]
+  menuVersions  MenuVersion[]
+  settings      Setting[]
+  accounts      Account[]
+  sessions      Session[]
+
+  @@map("tenants")
+}
+
+// ─── Auth (NextAuth) ────────────────────────────────────────────────────────
+
+model User {
+  id            String    @id @default(cuid())
+  name          String?
+  email         String
+  emailVerified DateTime?
+  image         String?
+  passwordHash  String?
+  role          UserRole  @default(EDITOR)
+  tenantId      String
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  tenant   Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  accounts Account[]
+  sessions Session[]
+
+  @@unique([email, tenantId])
+  @@index([tenantId])
+  @@map("users")
+}
+
+model Account {
+  id                String  @id @default(cuid())
+  userId            String
+  tenantId          String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String? @db.Text
+  access_token      String? @db.Text
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String? @db.Text
+  session_state     String?
+
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+  @@index([tenantId])
+  @@map("accounts")
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique
+  userId       String
+  tenantId     String
+  expires      DateTime
+
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId])
+  @@map("sessions")
+}
+
+model VerificationToken {
+  identifier String
+  token      String   @unique
+  expires    DateTime
+
+  @@unique([identifier, token])
+  @@map("verification_tokens")
+}
+
+enum UserRole {
+  OWNER
+  ADMIN
+  EDITOR
+}
+
+// ─── Menus ──────────────────────────────────────────────────────────────────
+
+model Menu {
+  id                  String     @id @default(cuid())
+  tenantId            String
+  type                MenuType
+  slug                String
+  name                String
+  layout              MenuLayout @default(CLASSIC)
+  subtitle            String?
+  subtitleEn          String?
+  typography          Json?
+  allergenLegend      Json?
+  coverImageUrl       String?
+  coverVideoUrl       String?
+  intro               Json?
+  status              MenuStatus @default(DRAFT)
+  sortOrder           Int        @default(0)
+  publishedVersionId  String?    @unique
+  createdAt           DateTime   @default(now())
+  updatedAt           DateTime   @updatedAt
+
+  tenant           Tenant        @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  categories       Category[]
+  versions         MenuVersion[] @relation("MenuVersions")
+  publishedVersion MenuVersion?  @relation("PublishedVersion", fields: [publishedVersionId], references: [id])
+
+  @@unique([tenantId, slug])
+  @@index([tenantId])
+  @@map("menus")
+}
+
+enum MenuType {
+  DINNER
+  WINE
+  DRINK
+}
+
+enum MenuStatus {
+  DRAFT
+  PREVIEW
+  PUBLISHED
+}
+
+enum MenuLayout {
+  CLASSIC
+  BISTROT_DINNER
+  BISTROT_WINE
+  BISTROT_DRINK
+}
+
+model Category {
+  id        String   @id @default(cuid())
+  tenantId  String
+  menuId    String
+  name      String
+  nameEn    String   @default("")
+  order     Int      @default(0)
+  visible   Boolean  @default(true)
+  wineSortByPrice Boolean @default(false)
+  backgroundColor String?
+  textColor       String?
+  footerImageUrl  String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  tenant    Tenant     @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  menu      Menu       @relation(fields: [menuId], references: [id], onDelete: Cascade)
+  menuItems MenuItem[]
+  wineItems WineItem[]
+  drinkItems DrinkItem[]
+
+  @@index([tenantId])
+  @@index([menuId])
+  @@map("categories")
+}
+
+// ─── Dinner items ───────────────────────────────────────────────────────────
+
+model MenuItem {
+  id           String   @id @default(cuid())
+  tenantId     String
+  categoryId   String
+  name          String
+  nameEn        String   @default("")
+  description   String   @default("")
+  descriptionEn String   @default("")
+  price        Decimal  @db.Decimal(10, 2)
+  order        Int      @default(0)
+  visible      Boolean  @default(true)
+  isVegetarian Boolean  @default(false)
+  isVegan      Boolean  @default(false)
+  isGlutenFree Boolean  @default(false)
+  isSpicy      Boolean  @default(false)
+  allergens    String[] @default([])
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  tenant   Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  category Category @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId])
+  @@index([categoryId])
+  @@map("menu_items")
+}
+
+// ─── Wine items ─────────────────────────────────────────────────────────────
+
+model WineItem {
+  id          String   @id @default(cuid())
+  tenantId    String
+  categoryId  String
+  name          String
+  nameEn        String   @default("")
+  producer      String   @default("")
+  vintage       String?
+  region        String   @default("")
+  regionEn      String   @default("")
+  subcategory   String   @default("")
+  subcategoryEn String   @default("")
+  description   String   @default("")
+  descriptionEn String   @default("")
+  glassPrice  Decimal? @db.Decimal(10, 2)
+  bottlePrice Decimal? @db.Decimal(10, 2)
+  order       Int      @default(0)
+  visible     Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  tenant   Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  category Category @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId])
+  @@index([categoryId])
+  @@map("wine_items")
+}
+
+// ─── Drink items ────────────────────────────────────────────────────────────
+
+model DrinkItem {
+  id           String   @id @default(cuid())
+  tenantId     String
+  categoryId   String
+  name            String
+  nameEn          String   @default("")
+  ingredients     String   @default("")
+  ingredientsEn   String   @default("")
+  description     String   @default("")
+  descriptionEn   String   @default("")
+  price        Decimal  @db.Decimal(10, 2)
+  order        Int      @default(0)
+  visible      Boolean  @default(true)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  tenant   Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  category Category @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId])
+  @@index([categoryId])
+  @@map("drink_items")
+}
+
+// ─── Versioning ─────────────────────────────────────────────────────────────
+
+model MenuVersion {
+  id          String   @id @default(cuid())
+  tenantId    String
+  menuId      String
+  version     Int
+  snapshot    Json
+  publishedAt DateTime @default(now())
+  publishedBy String?
+
+  tenant          Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  menu            Menu   @relation("MenuVersions", fields: [menuId], references: [id], onDelete: Cascade)
+  publishedOnMenu Menu?  @relation("PublishedVersion")
+
+  @@unique([menuId, version])
+  @@index([tenantId])
+  @@index([menuId])
+  @@map("menu_versions")
+}
+
+// ─── Settings ───────────────────────────────────────────────────────────────
+
+model Setting {
+  id        String   @id @default(cuid())
+  tenantId  String
+  key       String
+  value     Json
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@unique([tenantId, key])
+  @@index([tenantId])
+  @@map("settings")
+}

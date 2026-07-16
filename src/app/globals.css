@@ -1,0 +1,664 @@
+@import "tailwindcss";
+@import "tw-animate-css";
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --color-sidebar: var(--sidebar);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+  --shadow-2xs: 0 0 #0000;
+  --shadow-xs: 0 0 #0000;
+  --shadow-sm: 0 0 #0000;
+  --shadow: 0 0 #0000;
+  --shadow-md: 0 0 #0000;
+  --shadow-lg: 0 0 #0000;
+  --shadow-xl: 0 0 #0000;
+  --shadow-2xl: 0 0 #0000;
+}
+
+:root {
+  --radius: 0.5rem;
+  --background: oklch(1 0 0);
+  --foreground: oklch(0.145 0 0);
+  --card: oklch(1 0 0);
+  --card-foreground: oklch(0.145 0 0);
+  --popover: oklch(1 0 0);
+  --popover-foreground: oklch(0.145 0 0);
+  --primary: oklch(0.205 0 0);
+  --primary-foreground: oklch(0.985 0 0);
+  --secondary: oklch(0.97 0 0);
+  --secondary-foreground: oklch(0.205 0 0);
+  --muted: oklch(0.97 0 0);
+  --muted-foreground: oklch(0.556 0 0);
+  --accent: oklch(0.97 0 0);
+  --accent-foreground: oklch(0.205 0 0);
+  --destructive: oklch(0.577 0.245 27.325);
+  --border: oklch(0.922 0 0);
+  --input: oklch(0.922 0 0);
+  --ring: oklch(0.708 0 0);
+  --sidebar: oklch(0.985 0 0);
+  --sidebar-foreground: oklch(0.145 0 0);
+  --sidebar-border: oklch(0.922 0 0);
+  --sidebar-accent: oklch(0.97 0 0);
+  --sidebar-accent-foreground: oklch(0.205 0 0);
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+  body {
+    @apply bg-background text-foreground antialiased;
+  }
+}
+
+.bistrot-category-outline {
+  -webkit-text-fill-color: #ffffff;
+  paint-order: stroke fill;
+}
+
+.menu-print-page-section {
+  padding-left: 0 !important;
+  padding-right: 0 !important;
+}
+
+/* Web: il padding orizzontale viene dal main, non dal wrapper interno */
+main:not(.menu-pdf-main) .menu-print-page-section:not(.menu-print-page-colored) > .menu-print-page-inner {
+  padding-left: 0 !important;
+  padding-right: 0 !important;
+  max-width: none !important;
+  margin-left: 0 !important;
+  margin-right: 0 !important;
+}
+
+.menu-pdf-root .menu-print-chrome {
+  display: none !important;
+}
+
+.menu-pdf-root .menu-full-bleed {
+  position: relative !important;
+  left: 0 !important;
+  right: auto !important;
+  inset-inline-start: 0 !important;
+  transform: none !important;
+  translate: none !important;
+  --tw-translate-x: 0 !important;
+  --tw-translate-y: 0 !important;
+  width: 100% !important;
+  max-width: 100% !important;
+  margin-left: 0 !important;
+  margin-right: 0 !important;
+}
+
+.menu-pdf-root .menu-intro-wrapper {
+  display: contents;
+}
+
+.menu-pdf-root .menu-print-page-cover {
+  width: 210mm;
+  height: 297mm;
+  min-height: 297mm;
+  max-height: 297mm;
+  overflow: hidden;
+}
+
+.menu-pdf-root .menu-print-page-cover .menu-intro-cover-media {
+  height: 297mm !important;
+  min-height: 297mm !important;
+  max-height: 297mm !important;
+}
+
+.menu-pdf-root main {
+  padding-left: 0 !important;
+  padding-right: 0 !important;
+}
+
+.menu-pdf-root .menu-print-page-inner {
+  box-sizing: border-box;
+  padding-left: 12mm !important;
+  padding-right: 12mm !important;
+}
+
+.menu-pdf-root .menu-print-page-footer > div {
+  box-sizing: border-box;
+  padding-left: 12mm !important;
+  padding-right: 12mm !important;
+}
+
+.menu-pdf-root .menu-print-page-colored {
+  box-sizing: border-box;
+  box-decoration-break: clone;
+  -webkit-box-decoration-break: clone;
+  print-color-adjust: exact;
+  -webkit-print-color-adjust: exact;
+  background-color: var(--category-page-bg) !important;
+}
+
+.menu-pdf-root .menu-print-page-colored:not(.menu-print-category-has-footer) {
+  min-height: auto !important;
+}
+
+.menu-pdf-root .menu-print-page-colored.menu-print-category-has-footer {
+  min-height: 297mm;
+}
+
+.menu-pdf-root .wine-accordion-section .menu-print-page {
+  break-after: auto !important;
+  page-break-after: auto !important;
+}
+
+.menu-pdf-root
+  .wine-accordion-section
+  .menu-print-page-section:not(.menu-print-category-has-footer)
+  > .menu-print-page-inner {
+  padding-top: 2.5rem !important;
+  padding-bottom: 0 !important;
+}
+
+.menu-pdf-root
+  .wine-accordion-section:not(:first-of-type)
+  .menu-print-page-section:not(.menu-print-category-has-footer)
+  > .menu-print-page-inner {
+  padding-top: 1.25rem !important;
+}
+
+.menu-pdf-root .wine-accordion-section .mb-10 {
+  margin-bottom: 1.25rem !important;
+}
+
+.menu-pdf-root .wine-accordion-section .mb-10.menu-pdf-wine-page-top-pad {
+  padding-top: 12mm !important;
+}
+
+.menu-pdf-root .wine-accordion-section .mb-10.menu-pdf-wine-page-bottom-pad {
+  padding-bottom: 12mm !important;
+  margin-bottom: 0 !important;
+}
+
+.menu-pdf-root .wine-accordion-section .mb-10 > div {
+  align-items: flex-start !important;
+}
+
+.menu-pdf-root .wine-accordion-content > div {
+  padding-top: 1.25rem !important;
+}
+
+.menu-pdf-root .menu-pdf-wine-page-break {
+  break-before: page;
+  page-break-before: always;
+}
+
+.menu-pdf-root .menu-print-page-footer {
+  min-height: 297mm;
+  box-sizing: border-box;
+  box-decoration-break: clone;
+  -webkit-box-decoration-break: clone;
+  background: #000000 !important;
+  print-color-adjust: exact;
+  -webkit-print-color-adjust: exact;
+}
+
+.menu-pdf-root .menu-print-page-section {
+  overflow: visible;
+  padding-left: 0 !important;
+  padding-right: 0 !important;
+  break-inside: auto;
+  page-break-inside: auto;
+}
+
+.menu-pdf-root .menu-print-category-has-footer {
+  display: flex;
+  flex-direction: column;
+  min-height: 297mm;
+}
+
+.menu-print-category-flex-spacer {
+  display: none;
+}
+
+.menu-pdf-root .menu-print-category-flex-spacer {
+  display: block;
+  flex: 1 1 auto;
+  min-height: 0;
+}
+
+.menu-pdf-root .menu-print-category-wave {
+  flex: 0 0 auto;
+  flex-shrink: 0;
+  padding-top: 0 !important;
+  padding-bottom: 0 !important;
+}
+
+.menu-pdf-root .menu-print-category-has-footer .menu-print-page-inner {
+  box-sizing: border-box;
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-height: 297mm;
+  height: 297mm;
+  max-height: 297mm;
+  overflow: visible;
+  padding-top: 2rem !important;
+  padding-bottom: 1.25rem !important;
+}
+
+.menu-pdf-root .menu-print-category-content {
+  flex: 0 0 auto;
+  flex-shrink: 0;
+}
+
+.menu-pdf-root .menu-print-category-has-footer .menu-print-category-content > section {
+  margin-bottom: 1.75rem !important;
+}
+
+.menu-pdf-root .menu-print-category-has-footer .bistrot-category-outline {
+  line-height: 1.05 !important;
+  padding-top: 0.15em;
+  margin-bottom: 1.75rem !important;
+}
+
+.menu-pdf-root .menu-print-category-footer {
+  flex: 0 0 auto;
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  width: 100%;
+  break-inside: avoid;
+  page-break-inside: avoid;
+}
+
+.menu-pdf-root .category-footer-image {
+  display: block;
+  width: 100%;
+  height: auto;
+  max-height: 90mm;
+  margin-top: 0 !important;
+  object-fit: contain;
+  object-position: bottom center;
+}
+
+.menu-pdf-root .menu-print-page:not(.menu-print-page-cover) {
+  overflow: visible;
+}
+
+.menu-pdf-root .menu-print-exclude {
+  display: none !important;
+}
+
+.menu-pdf-root .wine-accordion-content {
+  display: block !important;
+}
+
+.menu-pdf-root .wine-accordion-panel-radix,
+.menu-pdf-root .wine-accordion-panel-radix[data-state="closed"] {
+  height: auto !important;
+  overflow: visible !important;
+  animation: none !important;
+}
+
+.menu-pdf-root .wine-accordion-panel-radix[hidden] {
+  display: block !important;
+}
+
+.menu-pdf-root .wine-accordion-panel {
+  height: auto !important;
+  overflow: visible !important;
+  transition: none !important;
+}
+
+.menu-pdf-root .wine-accordion-panel-inner,
+.menu-pdf-root .wine-accordion-panel-content {
+  overflow: visible !important;
+}
+
+.wine-accordion-section,
+.wine-accordion-panel,
+.wine-accordion-panel-content {
+  overflow-anchor: none;
+}
+
+@keyframes wine-accordion-slideDown {
+  from {
+    height: 0;
+  }
+  to {
+    height: var(--radix-accordion-content-height);
+  }
+}
+
+@keyframes wine-accordion-slideUp {
+  from {
+    height: var(--radix-accordion-content-height);
+  }
+  to {
+    height: 0;
+  }
+}
+
+.wine-accordion-panel-radix {
+  overflow: hidden;
+}
+
+.wine-accordion-panel-radix[data-state="open"] {
+  animation-name: wine-accordion-slideDown;
+  animation-duration: 600ms;
+  animation-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.wine-accordion-panel-radix[data-state="closed"] {
+  animation-name: wine-accordion-slideUp;
+  animation-duration: 600ms;
+  animation-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .wine-accordion-panel-radix[data-state="open"],
+  .wine-accordion-panel-radix[data-state="closed"] {
+    animation: none !important;
+  }
+}
+
+.menu-pdf-root .menu-print-allergen-section {
+  text-align: center !important;
+}
+
+.menu-pdf-root .menu-print-allergen-legend {
+  display: flex !important;
+  flex-direction: column !important;
+  align-items: center !important;
+  gap: 0.2rem !important;
+  columns: 1 !important;
+  column-count: 1 !important;
+  line-height: 1.35 !important;
+  text-align: center !important;
+}
+
+.menu-pdf-root .menu-print-allergen-legend > p {
+  width: 100%;
+  margin: 0 !important;
+  padding: 0 !important;
+  line-height: 1.35 !important;
+  text-align: center !important;
+  break-inside: avoid;
+}
+
+@media print {
+  @page {
+    size: A4 portrait;
+    margin: 0;
+  }
+
+  html,
+  body {
+    width: 100%;
+    margin: 0;
+    padding: 0;
+    background: #ffffff !important;
+    print-color-adjust: exact;
+    -webkit-print-color-adjust: exact;
+  }
+
+  .menu-pdf-root {
+    min-height: auto !important;
+    background: #ffffff !important;
+  }
+
+  .menu-print-chrome {
+    display: none !important;
+  }
+
+  .menu-intro-wrapper {
+    display: contents;
+  }
+
+  .menu-full-bleed {
+    position: relative !important;
+    left: 0 !important;
+    right: auto !important;
+    inset-inline-start: 0 !important;
+    transform: none !important;
+    translate: none !important;
+    --tw-translate-x: 0 !important;
+    --tw-translate-y: 0 !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    margin-left: 0 !important;
+    margin-right: 0 !important;
+  }
+
+  .menu-print-page {
+    box-sizing: border-box;
+    width: 210mm;
+    margin: 0 auto;
+    overflow: hidden;
+    break-after: page;
+    page-break-after: always;
+  }
+
+  .menu-print-page-cover {
+    width: 210mm;
+    height: 297mm;
+    min-height: 297mm;
+    max-height: 297mm;
+    overflow: hidden;
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }
+
+  .menu-print-page-cover .menu-intro-cover-media {
+    height: 297mm !important;
+    min-height: 297mm !important;
+    max-height: 297mm !important;
+    aspect-ratio: auto !important;
+  }
+
+  .menu-intro-cover .menu-intro-cover-video {
+    display: none !important;
+  }
+
+  .menu-intro-cover .menu-intro-cover-video-only {
+    display: block !important;
+  }
+
+  .menu-intro-cover .menu-intro-cover-poster,
+  .menu-intro-cover .menu-intro-cover-image {
+    display: block !important;
+  }
+
+  .menu-intro-text-section {
+    min-height: 297mm;
+    max-height: 297mm;
+    box-sizing: border-box;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    break-inside: avoid;
+    page-break-inside: avoid;
+    overflow: hidden;
+  }
+
+  .menu-print-page-section {
+    break-inside: avoid;
+    page-break-inside: avoid;
+    overflow: visible;
+    padding-left: 0 !important;
+    padding-right: 0 !important;
+  }
+
+  .menu-pdf-root .menu-print-page-section {
+    break-inside: auto;
+    page-break-inside: auto;
+  }
+
+  .menu-pdf-root .menu-print-category-has-footer {
+    display: flex;
+    flex-direction: column;
+    min-height: 297mm;
+  }
+
+  .menu-pdf-root .menu-print-category-flex-spacer {
+    display: block;
+    flex: 1 1 auto;
+    min-height: 0;
+  }
+
+  .menu-pdf-root .menu-print-category-wave {
+    flex: 0 0 auto;
+    flex-shrink: 0;
+    padding-top: 0 !important;
+    padding-bottom: 0 !important;
+  }
+
+  .menu-pdf-root .menu-print-category-has-footer .menu-print-page-inner {
+    box-sizing: border-box;
+    display: flex;
+    flex: 1;
+    flex-direction: column;
+    min-height: 297mm;
+    height: 297mm;
+    max-height: 297mm;
+    overflow: visible;
+    padding-top: 2rem !important;
+    padding-bottom: 1.25rem !important;
+  }
+
+  .menu-pdf-root .menu-print-category-content {
+    flex: 0 0 auto;
+    flex-shrink: 0;
+  }
+
+  .menu-pdf-root .menu-print-category-has-footer .menu-print-category-content > section {
+    margin-bottom: 1.75rem !important;
+  }
+
+  .menu-pdf-root .menu-print-category-has-footer .bistrot-category-outline {
+    line-height: 1.05 !important;
+    padding-top: 0.15em;
+    margin-bottom: 1.75rem !important;
+  }
+
+  .menu-pdf-root .menu-print-category-footer {
+    flex: 0 0 auto;
+    flex-shrink: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    width: 100%;
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }
+
+  .menu-pdf-root .category-footer-image {
+    display: block;
+    width: 100%;
+    height: auto;
+    max-height: 90mm;
+    margin-top: 0 !important;
+    object-fit: contain;
+    object-position: bottom center;
+  }
+
+  .menu-print-page:not(.menu-print-page-cover) {
+    overflow: visible;
+  }
+
+  .menu-print-page-colored {
+    box-sizing: border-box;
+    box-decoration-break: clone;
+    -webkit-box-decoration-break: clone;
+    print-color-adjust: exact;
+    -webkit-print-color-adjust: exact;
+    background-color: var(--category-page-bg) !important;
+  }
+
+  .menu-pdf-root .menu-print-page-colored:not(.menu-print-category-has-footer) {
+    min-height: auto !important;
+  }
+
+  .menu-pdf-root .menu-print-page-colored.menu-print-category-has-footer {
+    min-height: 297mm;
+  }
+
+  .menu-pdf-root main {
+    padding-left: 0 !important;
+    padding-right: 0 !important;
+  }
+
+  .menu-print-page-cover {
+    overflow: hidden;
+  }
+
+  .menu-print-page-footer {
+    overflow: visible;
+    break-inside: auto;
+    page-break-inside: auto;
+    break-before: page;
+    page-break-before: always;
+    break-after: auto;
+    page-break-after: auto;
+    min-height: 297mm;
+    box-sizing: border-box;
+    box-decoration-break: clone;
+    -webkit-box-decoration-break: clone;
+    background: #000000 !important;
+    print-color-adjust: exact;
+    -webkit-print-color-adjust: exact;
+  }
+
+  .menu-print-page:last-child {
+    break-after: auto;
+    page-break-after: auto;
+  }
+
+  /* Titoli outline (copertina, intro, categorie): solo contorno in PDF */
+  .bistrot-outline-title,
+  .bistrot-category-outline {
+    -webkit-text-stroke: 2px var(--bistrot-stroke-color, #1c1c1c) !important;
+    -webkit-text-fill-color: transparent !important;
+    color: transparent !important;
+    paint-order: normal !important;
+  }
+
+  .menu-cover-hero video {
+    display: none !important;
+  }
+
+  .break-inside-avoid {
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }
+
+  .wine-accordion-panel,
+  .wine-accordion-panel-radix {
+    height: auto !important;
+    overflow: visible !important;
+  }
+
+  .wine-accordion-panel-content {
+    overflow: visible !important;
+  }
+}
