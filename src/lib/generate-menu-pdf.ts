@@ -54,18 +54,14 @@ async function launchPdfBrowser(): Promise<Browser> {
     });
   }
 
-  const mod = await import("@sparticuz/chromium");
-  const sparticuz = ("default" in mod && mod.default ? mod.default : mod) as {
-    args: string[];
-    setGraphicsMode: (enabled: boolean) => void;
-    executablePath: () => Promise<string>;
-  };
-  sparticuz.setGraphicsMode(false);
+  const { default: sparticuzChromium } = await import("@sparticuz/chromium");
+  // Setter API (not a method): disables WebGL / swiftshader extract on Railway.
+  sparticuzChromium.setGraphicsMode = false;
 
   return chromium.launch({
-    executablePath: await sparticuz.executablePath(),
+    executablePath: await sparticuzChromium.executablePath(),
     headless: true,
-    args: [...sparticuz.args, ...commonArgs],
+    args: [...sparticuzChromium.args, ...commonArgs],
   });
 }
 
