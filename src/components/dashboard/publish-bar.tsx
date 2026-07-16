@@ -297,6 +297,10 @@ export function PublishBar({
               />
               <p className="text-xs text-muted-foreground break-all">
                 URL pubblico: {previewPublicUrl}
+                <span className="mt-1 block text-muted-foreground/80">
+                  Usa questo link (index.php) anche su WordPress: Safari mette in
+                  cache le cartelle /menu-*/ senza .php.
+                </span>
               </p>
               {!ftpConfigured && (
                 <p className="text-xs text-amber-700 dark:text-amber-300">

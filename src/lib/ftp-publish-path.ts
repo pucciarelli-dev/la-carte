@@ -41,7 +41,17 @@ export function buildPublicMenuUrl(
 ): string {
   const base = publicBaseUrl.replace(/\/+$/, "");
   const path = normalizeStaticPublishPath(staticPublishPath);
-  return `${base}/${path}/`;
+  // index.php bypasses Aruba directory HTML cache (Safari was stuck on HIT /menu-*/)
+  return `${base}/${path}/index.php`;
+}
+
+export function buildPublicMenuUrlEn(
+  publicBaseUrl: string,
+  staticPublishPath: string
+): string {
+  const base = publicBaseUrl.replace(/\/+$/, "");
+  const path = normalizeStaticPublishPath(staticPublishPath);
+  return `${base}/${path}/en.php`;
 }
 
 export function joinFtpPath(...parts: string[]): string {
