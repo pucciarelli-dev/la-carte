@@ -101,7 +101,7 @@ export const bistrotMenuTypography = {
   introFooterLegendTitle:
     "text-center text-xs font-normal tracking-widest text-white/90",
   introFooterLegendBody:
-    "columns-1 gap-8 text-xs leading-[1.65] tracking-wide text-white/75 min-[480px]:columns-2",
+    "columns-1 gap-8 text-center text-xs leading-[1.65] tracking-wide text-white/75 min-[480px]:columns-2",
   introFooterLegendDisclaimer:
     "mt-2 text-center text-xs tracking-wide text-white/60 italic",
   introFooterFrozenTitle:

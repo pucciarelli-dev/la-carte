@@ -95,7 +95,7 @@ export function MenuIntroFooter({
           <div
             className={cn(
               MENU_PRINT_ALLERGEN_SECTION_CLASS,
-              "text-left",
+              "text-center",
               (intro?.logoUrl || coverNote) && "mt-8"
             )}
           >
@@ -113,7 +113,7 @@ export function MenuIntroFooter({
               className={cn(
                 MENU_PRINT_ALLERGEN_LEGEND_CLASS,
                 t.introFooterLegendBody,
-                "mt-4"
+                "mt-4 text-center"
               )}
             >
               {legend.map((entry) => (

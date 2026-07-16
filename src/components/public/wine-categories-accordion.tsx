@@ -120,12 +120,14 @@ interface BistrotWineCategoriesAccordionProps {
   categories: PublishedCategoryWithItems[];
   typography: MenuTypography;
   expandAll?: boolean;
+  forceMountPanels?: boolean;
 }
 
 export function BistrotWineCategoriesAccordion({
   categories,
   typography,
   expandAll = false,
+  forceMountPanels = false,
 }: BistrotWineCategoriesAccordionProps) {
   const [openId, setOpenId] = useState<string>("");
   const sectionRefs = useRef(new Map<string, HTMLElement>());
@@ -228,7 +230,7 @@ export function BistrotWineCategoriesAccordion({
                 </WineAccordionTrigger>
 
                 <Accordion.Content
-                  forceMount={expandAll || undefined}
+                  forceMount={expandAll || forceMountPanels || undefined}
                   className={cn(
                     WINE_ACCORDION_CONTENT_CLASS,
                     "wine-accordion-panel-radix"
@@ -267,12 +269,14 @@ interface ClassicWineCategoriesAccordionProps {
   categories: PublishedCategoryWithItems[];
   typography: MenuTypography;
   expandAll?: boolean;
+  forceMountPanels?: boolean;
 }
 
 export function ClassicWineCategoriesAccordion({
   categories,
   typography,
   expandAll = false,
+  forceMountPanels = false,
 }: ClassicWineCategoriesAccordionProps) {
   const [openId, setOpenId] = useState<string>("");
   const sectionRefs = useRef(new Map<string, HTMLElement>());
@@ -364,7 +368,7 @@ export function ClassicWineCategoriesAccordion({
                 </WineAccordionTrigger>
 
                 <Accordion.Content
-                  forceMount={expandAll || undefined}
+                  forceMount={expandAll || forceMountPanels || undefined}
                   className={cn(
                     WINE_ACCORDION_CONTENT_CLASS,
                     "wine-accordion-panel-radix"

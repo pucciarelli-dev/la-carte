@@ -67,6 +67,21 @@ function injectStaticPublishHead(html: string, publishedAt: string) {
 <meta http-equiv="Pragma" content="no-cache" />
 <meta http-equiv="Expires" content="0" />
 <!-- lacarte-published-at: ${publishedAt} -->
+<style>
+  /* Static wine accordion (no React hydration on FTP host) */
+  .wine-accordion-panel-radix[data-state="closed"],
+  .wine-accordion-panel-radix[hidden] {
+    display: none !important;
+    height: auto !important;
+    animation: none !important;
+  }
+  .wine-accordion-panel-radix[data-state="open"] {
+    display: block !important;
+    height: auto !important;
+    overflow: visible !important;
+    animation: none !important;
+  }
+</style>
 `;
   if (/<head[^>]*>/i.test(html)) {
     return html.replace(/<head[^>]*>/i, (match) => `${match}\n${head}`);
@@ -74,7 +89,7 @@ function injectStaticPublishHead(html: string, publishedAt: string) {
   return `${head}${html}`;
 }
 
-function injectLanguageSwitcher(html: string, current: "it" | "en") {
+function injectStaticBehaviors(html: string, current: "it" | "en") {
   const script = `
 <script>
 (function () {
@@ -86,6 +101,46 @@ function injectLanguageSwitcher(html: string, current: "it" | "en") {
       a.classList.add("text-white");
       a.classList.remove("text-white/50");
     }
+  });
+
+  var sections = Array.prototype.slice.call(
+    document.querySelectorAll(".wine-accordion-section")
+  );
+  if (!sections.length) return;
+
+  function setOpen(section, open) {
+    var btn = section.querySelector("button[aria-expanded]");
+    var panel = section.querySelector(".wine-accordion-panel-radix");
+    if (!btn || !panel) return;
+    btn.setAttribute("aria-expanded", open ? "true" : "false");
+    panel.setAttribute("data-state", open ? "open" : "closed");
+    if (open) {
+      panel.removeAttribute("hidden");
+    } else {
+      panel.setAttribute("hidden", "");
+    }
+  }
+
+  sections.forEach(function (section) {
+    setOpen(section, false);
+    var btn = section.querySelector("button[aria-expanded]");
+    if (!btn) return;
+    btn.addEventListener("click", function (event) {
+      event.preventDefault();
+      event.stopPropagation();
+      var willOpen = btn.getAttribute("aria-expanded") !== "true";
+      sections.forEach(function (other) {
+        setOpen(other, false);
+      });
+      if (!willOpen) return;
+      setOpen(section, true);
+      try {
+        var top = section.getBoundingClientRect().top + window.scrollY - 12;
+        window.scrollTo({ top: Math.max(0, top), left: 0, behavior: "smooth" });
+      } catch (e) {
+        section.scrollIntoView(true);
+      }
+    });
   });
 })();
 </script>`;
@@ -162,7 +217,7 @@ export async function generateStaticMenuFiles(input: {
 
   const finalize = (html: string, locale: "it" | "en") =>
     Buffer.from(
-      injectLanguageSwitcher(
+      injectStaticBehaviors(
         injectStaticPublishHead(html, publishedAt),
         locale
       ),

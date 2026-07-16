@@ -17,6 +17,7 @@ export function ClassicLayout({
   intro,
   subtitle,
   expandWineAccordions = false,
+  forceMountWinePanels = false,
 }: MenuRenderContext) {
   const showIntro = shouldShowMenuIntro(intro, coverImageUrl, coverVideoUrl);
 
@@ -57,6 +58,7 @@ export function ClassicLayout({
           categories={categories}
           typography={typography}
           expandAll={expandWineAccordions}
+          forceMountPanels={forceMountWinePanels}
         />
       </>
     );

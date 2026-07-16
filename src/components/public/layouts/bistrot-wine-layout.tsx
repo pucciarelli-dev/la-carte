@@ -19,6 +19,7 @@ export function BistrotWineLayout({
   menuType,
   locale = "it",
   expandWineAccordions = false,
+  forceMountWinePanels = false,
 }: MenuRenderContext) {
   const showIntro = shouldShowMenuIntro(intro, coverImageUrl, coverVideoUrl);
 
@@ -47,6 +48,7 @@ export function BistrotWineLayout({
         categories={categories}
         typography={typography}
         expandAll={expandWineAccordions}
+        forceMountPanels={forceMountWinePanels}
       />
 
       <MenuPageFooter

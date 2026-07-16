@@ -44,6 +44,8 @@ export interface MenuRenderContext {
   locale?: MenuLocale;
   /** Espande tutti i pannelli (es. export PDF vini). */
   expandWineAccordions?: boolean;
+  /** Tiene i pannelli nel DOM chiusi (es. build FTP statica con accordion JS). */
+  forceMountWinePanels?: boolean;
 }
 
 export interface LayoutDefinition {

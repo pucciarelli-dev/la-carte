@@ -63,7 +63,9 @@ export default async function PublicMenuPage({ params, searchParams }: PageProps
   const isFtpExport = ftp === "1";
   const locale = parseMenuLocale(lang);
   const expandWineAccordions =
-    (isPdfExport || isFtpExport) && menuExists.type === "WINE";
+    isPdfExport && menuExists.type === "WINE";
+  const forceMountWinePanels =
+    isFtpExport && menuExists.type === "WINE";
 
   if (isPreview && !isEmbed && !isPdfExport) {
     return (
@@ -203,6 +205,7 @@ export default async function PublicMenuPage({ params, searchParams }: PageProps
           menuType={snapshot.menuType}
           locale={locale}
           expandWineAccordions={expandWineAccordions}
+          forceMountWinePanels={forceMountWinePanels}
         />
       </main>
 
