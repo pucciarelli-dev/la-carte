@@ -69,20 +69,40 @@ function injectStaticPublishHead(html: string, publishedAt: string, publishId: s
 <meta name="lacarte-publish-id" content="${publishId}" />
 <!-- lacarte-published-at: ${publishedAt} -->
 <style>
-  /* Match preview Radix wine accordion motion on static FTP pages */
+  /* Same keyframes as preview (globals.css) — local so FTP pages don't depend on timing */
+  @keyframes wine-accordion-slideDown {
+    from { height: 0; }
+    to { height: var(--radix-accordion-content-height); }
+  }
+  @keyframes wine-accordion-slideUp {
+    from { height: var(--radix-accordion-content-height); }
+    to { height: 0; }
+  }
   .wine-accordion-panel-radix {
     overflow: hidden;
   }
-  .wine-accordion-panel-radix[data-state="closed"] {
-    height: 0 !important;
-    visibility: hidden;
-  }
   .wine-accordion-panel-radix[data-state="open"] {
-    visibility: visible;
+    animation-name: wine-accordion-slideDown;
+    animation-duration: 600ms;
+    animation-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
+  }
+  .wine-accordion-panel-radix[data-state="closed"] {
+    animation-name: wine-accordion-slideUp;
+    animation-duration: 600ms;
+    animation-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
+  }
+  .wine-accordion-panel-radix[data-state="closed"]:not(.wine-accordion-animating) {
+    height: 0;
+    animation: none;
+  }
+  .wine-accordion-panel-radix[data-state="open"]:not(.wine-accordion-animating) {
+    height: auto;
+    animation: none;
   }
   @media (prefers-reduced-motion: reduce) {
-    .wine-accordion-panel-radix {
-      transition: none !important;
+    .wine-accordion-panel-radix[data-state="open"],
+    .wine-accordion-panel-radix[data-state="closed"] {
+      animation: none !important;
     }
   }
 </style>
@@ -103,7 +123,6 @@ function injectStaticBehaviors(
 (function () {
   var v = ${JSON.stringify(publishId)};
   var DURATION_MS = 600;
-  var EASING = "cubic-bezier(0.4, 0, 0.2, 1)";
   var reducedMotion = window.matchMedia &&
     window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 
@@ -153,61 +172,105 @@ function injectStaticBehaviors(
     requestAnimationFrame(tick);
   }
 
-  function panelHeight(panel) {
+  function measureContentHeight(panel) {
+    var wasHidden = panel.hasAttribute("hidden");
+    var prevHeight = panel.style.height;
+    var prevVisibility = panel.style.visibility;
+    var prevOverflow = panel.style.overflow;
+    if (wasHidden) panel.removeAttribute("hidden");
+    panel.style.visibility = "hidden";
+    panel.style.overflow = "hidden";
     panel.style.height = "auto";
-    var h = panel.scrollHeight;
-    return h;
+    var height = panel.scrollHeight;
+    panel.style.height = prevHeight;
+    panel.style.visibility = prevVisibility;
+    panel.style.overflow = prevOverflow;
+    if (wasHidden) panel.setAttribute("hidden", "");
+    return height;
+  }
+
+  function clearAnim(panel) {
+    panel.classList.remove("wine-accordion-animating");
+    panel.style.removeProperty("--radix-accordion-content-height");
+    panel.style.removeProperty("animation");
   }
 
   function animateOpen(panel) {
-    panel.removeAttribute("hidden");
-    panel.setAttribute("data-state", "open");
-    if (reducedMotion) {
-      panel.style.height = "auto";
-      panel.style.transition = "";
+    if (panel.getAttribute("data-state") === "open" && !panel.classList.contains("wine-accordion-animating")) {
       return;
     }
-    var h = panelHeight(panel);
-    panel.style.height = "0px";
-    panel.style.transition = "none";
-    void panel.offsetHeight;
-    panel.style.transition = "height " + DURATION_MS + "ms " + EASING;
-    panel.style.height = h + "px";
-    function onEnd(event) {
-      if (event.propertyName && event.propertyName !== "height") return;
-      panel.removeEventListener("transitionend", onEnd);
+    clearAnim(panel);
+    var height = measureContentHeight(panel);
+    panel.style.setProperty("--radix-accordion-content-height", height + "px");
+    panel.removeAttribute("hidden");
+    panel.classList.add("wine-accordion-animating");
+    panel.setAttribute("data-state", "open");
+
+    if (reducedMotion) {
+      clearAnim(panel);
       panel.style.height = "auto";
-      panel.style.transition = "";
+      return;
     }
+
+    function onEnd(event) {
+      if (event.target !== panel) return;
+      if (event.animationName && event.animationName.indexOf("slideDown") === -1 && event.propertyName && event.propertyName !== "height") {
+        return;
+      }
+      panel.removeEventListener("animationend", onEnd);
+      panel.removeEventListener("transitionend", onEnd);
+      clearAnim(panel);
+      panel.style.height = "auto";
+    }
+    panel.addEventListener("animationend", onEnd);
     panel.addEventListener("transitionend", onEnd);
+    window.setTimeout(function () {
+      if (!panel.classList.contains("wine-accordion-animating")) return;
+      clearAnim(panel);
+      panel.style.height = "auto";
+    }, DURATION_MS + 50);
   }
 
-  function animateClose(panel, done) {
-    if (panel.getAttribute("data-state") === "closed" && panel.style.height === "0px") {
-      if (done) done();
+  function animateClose(panel) {
+    if (panel.getAttribute("data-state") === "closed" && !panel.classList.contains("wine-accordion-animating")) {
       return;
     }
+    clearAnim(panel);
+    var height = panel.scrollHeight || measureContentHeight(panel);
+    panel.style.setProperty("--radix-accordion-content-height", height + "px");
+    panel.style.height = height + "px";
+    panel.removeAttribute("hidden");
+    panel.classList.add("wine-accordion-animating");
+    // Force reflow so slideUp starts from full height
+    void panel.offsetHeight;
     panel.setAttribute("data-state", "closed");
+
     if (reducedMotion) {
+      clearAnim(panel);
       panel.style.height = "0px";
       panel.setAttribute("hidden", "");
-      if (done) done();
       return;
     }
-    var h = panelHeight(panel);
-    panel.style.height = h + "px";
-    panel.style.transition = "none";
-    void panel.offsetHeight;
-    panel.style.transition = "height " + DURATION_MS + "ms " + EASING;
-    panel.style.height = "0px";
+
     function onEnd(event) {
-      if (event.propertyName && event.propertyName !== "height") return;
+      if (event.target !== panel) return;
+      if (event.animationName && event.animationName.indexOf("slideUp") === -1 && event.propertyName && event.propertyName !== "height") {
+        return;
+      }
+      panel.removeEventListener("animationend", onEnd);
       panel.removeEventListener("transitionend", onEnd);
+      clearAnim(panel);
+      panel.style.height = "0px";
       panel.setAttribute("hidden", "");
-      panel.style.transition = "";
-      if (done) done();
     }
+    panel.addEventListener("animationend", onEnd);
     panel.addEventListener("transitionend", onEnd);
+    window.setTimeout(function () {
+      if (!panel.classList.contains("wine-accordion-animating")) return;
+      clearAnim(panel);
+      panel.style.height = "0px";
+      panel.setAttribute("hidden", "");
+    }, DURATION_MS + 50);
   }
 
   function setOpen(section, open, options) {
@@ -228,6 +291,7 @@ function injectStaticBehaviors(
     var panel = section.querySelector(".wine-accordion-panel-radix");
     var btn = section.querySelector("button[aria-expanded]");
     if (panel) {
+      clearAnim(panel);
       panel.style.height = "0px";
       panel.setAttribute("data-state", "closed");
       panel.setAttribute("hidden", "");
@@ -239,6 +303,7 @@ function injectStaticBehaviors(
       event.preventDefault();
       event.stopPropagation();
       var willOpen = btn.getAttribute("aria-expanded") !== "true";
+      // Close others in parallel (same as Radix single accordion)
       sections.forEach(function (other) {
         if (other === section) return;
         setOpen(other, false);
