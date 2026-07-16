@@ -48,6 +48,16 @@ function absolutizeHtml(html: string, assetBaseUrl: string) {
     ""
   );
 
+  // Let the host site (WordPress) keep its own favicon.
+  next = next.replace(
+    /<link\b[^>]*rel=["'][^"']*icon[^"']*["'][^>]*>/gi,
+    ""
+  );
+  next = next.replace(
+    /<link\b[^>]*href=["'][^"']*\/(?:favicon\.ico|icon(?:-\d+x\d+)?\.(?:svg|png|ico)|apple-icon[^"']*)[^"']*["'][^>]*>/gi,
+    ""
+  );
+
   return next;
 }
 
