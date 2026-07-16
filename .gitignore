@@ -9,3 +9,5 @@ tsconfig.tsbuildinfo
 .DS_Store
 prisma/*.db
 prisma/*.db-journal
+/tmp
+
