@@ -191,7 +191,11 @@ export async function buildMenuSnapshot(
   };
 }
 
-export async function publishMenu(menuId: string, tenantId: string, userId: string) {
+export async function createMenuVersion(
+  menuId: string,
+  tenantId: string,
+  userId: string
+) {
   await prisma.menu.findFirstOrThrow({
     where: { id: menuId, tenantId },
   });
@@ -205,7 +209,7 @@ export async function publishMenu(menuId: string, tenantId: string, userId: stri
   const snapshot = await buildMenuSnapshot(menuId, tenantId);
   snapshot.version = nextVersion;
 
-  const version = await prisma.menuVersion.create({
+  return prisma.menuVersion.create({
     data: {
       tenantId,
       menuId,
@@ -214,9 +218,19 @@ export async function publishMenu(menuId: string, tenantId: string, userId: stri
       publishedBy: userId,
     },
   });
+}
+
+export async function activatePublishedVersion(
+  menuId: string,
+  tenantId: string,
+  versionId: string
+) {
+  const version = await prisma.menuVersion.findFirstOrThrow({
+    where: { id: versionId, menuId, tenantId },
+  });
 
   await prisma.menu.update({
-    where: { id: menuId },
+    where: { id: menuId, tenantId },
     data: {
       status: "PUBLISHED",
       publishedVersionId: version.id,
@@ -224,6 +238,11 @@ export async function publishMenu(menuId: string, tenantId: string, userId: stri
   });
 
   return version;
+}
+
+export async function publishMenu(menuId: string, tenantId: string, userId: string) {
+  const version = await createMenuVersion(menuId, tenantId, userId);
+  return activatePublishedVersion(menuId, tenantId, version.id);
 }
 
 export async function restoreMenuVersion(

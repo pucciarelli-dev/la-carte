@@ -99,8 +99,8 @@ export async function generateStaticMenuFiles(input: {
 }): Promise<StaticMenuFile[]> {
   void input.ftp;
   const baseUrl = appBaseUrl();
-  const itUrl = `${baseUrl}/menu/${input.menuSlug}?ftp=1`;
-  const enUrl = `${baseUrl}/menu/${input.menuSlug}?ftp=1&lang=en`;
+  const itUrl = `${baseUrl}/menu/${input.menuSlug}?preview=true&embed=1&ftp=1`;
+  const enUrl = `${baseUrl}/menu/${input.menuSlug}?preview=true&embed=1&ftp=1&lang=en`;
 
   const [itHtml, enHtml] = await Promise.all([
     captureLocaleHtml(itUrl, baseUrl),

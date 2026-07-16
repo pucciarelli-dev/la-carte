@@ -27,7 +27,8 @@ import {
   seedEmptyMenuStructure,
 } from "@/lib/menu-clone";
 import {
-  publishMenu,
+  createMenuVersion,
+  activatePublishedVersion,
   restoreMenuVersion,
 } from "@/server/repositories/menu-repository";
 
@@ -799,17 +800,54 @@ export async function publishMenuAction(
     });
   }
 
-  const version = await publishMenu(
+  const ftp = await getFtpPublishSettings(session.user.tenantId);
+  const ftpReady = isFtpConfigured(ftp);
+
+  // Create a new version first, but do NOT make it live yet.
+  const pendingVersion = await createMenuVersion(
     menuId,
     session.user.tenantId,
     session.user.id
   );
 
+  if (ftpReady) {
+    try {
+      const { generateStaticMenuFiles } = await import(
+        "@/lib/generate-static-menu"
+      );
+      const { uploadStaticMenuViaFtp } = await import("@/lib/ftp-upload");
+      const files = await generateStaticMenuFiles({
+        menuSlug: existing.slug,
+        ftp,
+      });
+      await uploadStaticMenuViaFtp({
+        ftp,
+        publishPath,
+        files,
+      });
+    } catch (error) {
+      // Keep previous published version online. Drop the unused pending version.
+      await prisma.menuVersion.delete({ where: { id: pendingVersion.id } }).catch(
+        () => undefined
+      );
+      const detail =
+        error instanceof Error ? error.message : "Errore sconosciuto FTP";
+      throw new Error(
+        `Pubblicazione annullata: upload FTP fallito. Il menu online non è stato modificato. (${detail})`
+      );
+    }
+  }
+
+  const version = await activatePublishedVersion(
+    menuId,
+    session.user.tenantId,
+    pendingVersion.id
+  );
+
   revalidateMenuPaths(existing.slug);
   revalidatePath("/dashboard");
 
-  const ftp = await getFtpPublishSettings(session.user.tenantId);
-  if (!isFtpConfigured(ftp)) {
+  if (!ftpReady) {
     return {
       version,
       ftpUploaded: false,
@@ -819,37 +857,12 @@ export async function publishMenuAction(
     };
   }
 
-  try {
-    const { generateStaticMenuFiles } = await import(
-      "@/lib/generate-static-menu"
-    );
-    const { uploadStaticMenuViaFtp } = await import("@/lib/ftp-upload");
-    const files = await generateStaticMenuFiles({
-      menuSlug: existing.slug,
-      ftp,
-    });
-    await uploadStaticMenuViaFtp({
-      ftp,
-      publishPath,
-      files,
-    });
-
-    return {
-      version,
-      ftpUploaded: true,
-      publicUrl: buildPublicMenuUrl(ftp.publicBaseUrl, publishPath),
-      message: "Menu pubblicato e caricato via FTP.",
-    };
-  } catch (error) {
-    const detail =
-      error instanceof Error ? error.message : "Errore sconosciuto FTP";
-    return {
-      version,
-      ftpUploaded: false,
-      publicUrl: null as string | null,
-      message: `Menu pubblicato su La Carte, ma upload FTP fallito: ${detail}`,
-    };
-  }
+  return {
+    version,
+    ftpUploaded: true,
+    publicUrl: buildPublicMenuUrl(ftp.publicBaseUrl, publishPath),
+    message: "Menu pubblicato e caricato via FTP.",
+  };
 }
 
 export async function updateMenuStaticPublishPathAction(
