@@ -69,18 +69,21 @@ function injectStaticPublishHead(html: string, publishedAt: string, publishId: s
 <meta name="lacarte-publish-id" content="${publishId}" />
 <!-- lacarte-published-at: ${publishedAt} -->
 <style>
-  /* Static wine accordion (no React hydration on FTP host) */
-  .wine-accordion-panel-radix[data-state="closed"],
-  .wine-accordion-panel-radix[hidden] {
-    display: none !important;
-    height: auto !important;
-    animation: none !important;
+  /* Match preview Radix wine accordion motion on static FTP pages */
+  .wine-accordion-panel-radix {
+    overflow: hidden;
+  }
+  .wine-accordion-panel-radix[data-state="closed"] {
+    height: 0 !important;
+    visibility: hidden;
   }
   .wine-accordion-panel-radix[data-state="open"] {
-    display: block !important;
-    height: auto !important;
-    overflow: visible !important;
-    animation: none !important;
+    visibility: visible;
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .wine-accordion-panel-radix {
+      transition: none !important;
+    }
   }
 </style>
 `;
@@ -99,9 +102,13 @@ function injectStaticBehaviors(
 <script>
 (function () {
   var v = ${JSON.stringify(publishId)};
+  var DURATION_MS = 600;
+  var EASING = "cubic-bezier(0.4, 0, 0.2, 1)";
+  var reducedMotion = window.matchMedia &&
+    window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+
   document.querySelectorAll('[aria-label="Lingua menu"] a').forEach(function (a) {
     var label = (a.textContent || "").trim().toUpperCase();
-    // menu.html = IT content; index.html is only a redirect stub for /menu-dinner/
     if (label === "IT") a.setAttribute("href", "./menu.html?v=" + v + "&t=" + Date.now());
     if (label === "EN") a.setAttribute("href", "./en.html?v=" + v + "&t=" + Date.now());
     if ((label === "IT" && "${current}" === "it") || (label === "EN" && "${current}" === "en")) {
@@ -115,38 +122,128 @@ function injectStaticBehaviors(
   );
   if (!sections.length) return;
 
-  function setOpen(section, open) {
+  function stickyOffset() {
+    var offset = 12;
+    document.querySelectorAll(".menu-print-chrome.sticky, header.sticky").forEach(function (el) {
+      var rect = el.getBoundingClientRect();
+      if (rect.height > 0 && rect.top <= 1) {
+        offset = Math.max(offset, rect.bottom);
+      }
+    });
+    return offset;
+  }
+
+  function scrollSectionToTop(section, behavior) {
+    var top = section.getBoundingClientRect().top + window.scrollY - stickyOffset();
+    window.scrollTo({ top: Math.max(0, top), left: 0, behavior: behavior || "auto" });
+  }
+
+  function pinSectionDuringOpen(section) {
+    if (reducedMotion) {
+      scrollSectionToTop(section, "auto");
+      return;
+    }
+    scrollSectionToTop(section, "smooth");
+    var startedAt = performance.now();
+    function tick() {
+      if (performance.now() - startedAt >= DURATION_MS) return;
+      scrollSectionToTop(section, "auto");
+      requestAnimationFrame(tick);
+    }
+    requestAnimationFrame(tick);
+  }
+
+  function panelHeight(panel) {
+    panel.style.height = "auto";
+    var h = panel.scrollHeight;
+    return h;
+  }
+
+  function animateOpen(panel) {
+    panel.removeAttribute("hidden");
+    panel.setAttribute("data-state", "open");
+    if (reducedMotion) {
+      panel.style.height = "auto";
+      panel.style.transition = "";
+      return;
+    }
+    var h = panelHeight(panel);
+    panel.style.height = "0px";
+    panel.style.transition = "none";
+    void panel.offsetHeight;
+    panel.style.transition = "height " + DURATION_MS + "ms " + EASING;
+    panel.style.height = h + "px";
+    function onEnd(event) {
+      if (event.propertyName && event.propertyName !== "height") return;
+      panel.removeEventListener("transitionend", onEnd);
+      panel.style.height = "auto";
+      panel.style.transition = "";
+    }
+    panel.addEventListener("transitionend", onEnd);
+  }
+
+  function animateClose(panel, done) {
+    if (panel.getAttribute("data-state") === "closed" && panel.style.height === "0px") {
+      if (done) done();
+      return;
+    }
+    panel.setAttribute("data-state", "closed");
+    if (reducedMotion) {
+      panel.style.height = "0px";
+      panel.setAttribute("hidden", "");
+      if (done) done();
+      return;
+    }
+    var h = panelHeight(panel);
+    panel.style.height = h + "px";
+    panel.style.transition = "none";
+    void panel.offsetHeight;
+    panel.style.transition = "height " + DURATION_MS + "ms " + EASING;
+    panel.style.height = "0px";
+    function onEnd(event) {
+      if (event.propertyName && event.propertyName !== "height") return;
+      panel.removeEventListener("transitionend", onEnd);
+      panel.setAttribute("hidden", "");
+      panel.style.transition = "";
+      if (done) done();
+    }
+    panel.addEventListener("transitionend", onEnd);
+  }
+
+  function setOpen(section, open, options) {
+    options = options || {};
     var btn = section.querySelector("button[aria-expanded]");
     var panel = section.querySelector(".wine-accordion-panel-radix");
     if (!btn || !panel) return;
     btn.setAttribute("aria-expanded", open ? "true" : "false");
-    panel.setAttribute("data-state", open ? "open" : "closed");
     if (open) {
-      panel.removeAttribute("hidden");
+      animateOpen(panel);
+      if (options.scroll) pinSectionDuringOpen(section);
     } else {
-      panel.setAttribute("hidden", "");
+      animateClose(panel);
     }
   }
 
   sections.forEach(function (section) {
-    setOpen(section, false);
+    var panel = section.querySelector(".wine-accordion-panel-radix");
     var btn = section.querySelector("button[aria-expanded]");
+    if (panel) {
+      panel.style.height = "0px";
+      panel.setAttribute("data-state", "closed");
+      panel.setAttribute("hidden", "");
+    }
+    if (btn) btn.setAttribute("aria-expanded", "false");
     if (!btn) return;
+
     btn.addEventListener("click", function (event) {
       event.preventDefault();
       event.stopPropagation();
       var willOpen = btn.getAttribute("aria-expanded") !== "true";
       sections.forEach(function (other) {
+        if (other === section) return;
         setOpen(other, false);
       });
-      if (!willOpen) return;
-      setOpen(section, true);
-      try {
-        var top = section.getBoundingClientRect().top + window.scrollY - 12;
-        window.scrollTo({ top: Math.max(0, top), left: 0, behavior: "smooth" });
-      } catch (e) {
-        section.scrollIntoView(true);
-      }
+      setOpen(section, willOpen, { scroll: willOpen });
     });
   });
 })();
