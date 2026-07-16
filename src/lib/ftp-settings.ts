@@ -129,7 +129,6 @@ export function isFtpConfigured(settings: FtpPublishSettings): boolean {
     settings.host &&
       settings.user &&
       settings.password &&
-      settings.remoteBasePath &&
       settings.publicBaseUrl
   );
 }

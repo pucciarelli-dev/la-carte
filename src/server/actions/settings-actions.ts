@@ -104,7 +104,7 @@ const ftpSettingsSchema = z.object({
   user: z.string().min(1),
   password: z.string().optional(),
   secure: z.boolean().default(true),
-  remoteBasePath: z.string().min(1),
+  remoteBasePath: z.string().default("."),
   publicBaseUrl: z.string().url(),
 });
 

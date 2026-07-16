@@ -140,12 +140,13 @@ export function FtpSettingsForm({ initial }: FtpSettingsFormProps) {
                 id="ftp-base-path"
                 value={remoteBasePath}
                 onChange={(e) => setRemoteBasePath(e.target.value)}
-                placeholder="/bistrot.southgarage.com"
-                required
+                placeholder="bistrot.southgarage.com oppure . se sei già nella cartella del sito"
               />
               <p className="text-xs text-muted-foreground">
-                Dentro questa cartella verranno create le sottocartelle del menu
-                (es. menu-dinner).
+                Percorso FTP della cartella del sito (es.{" "}
+                <code>bistrot.southgarage.com</code>). Se al login sei già
+                dentro quella cartella, usa <code>.</code>. I menu finiscono
+                qui dentro (es. <code>menu-dinner</code>).
               </p>
             </div>
             <div className="space-y-2 sm:col-span-2">

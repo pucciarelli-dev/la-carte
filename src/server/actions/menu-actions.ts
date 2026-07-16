@@ -705,6 +705,7 @@ export async function publishMenuAction(
   version?: { id: string; version: number };
   ftpUploaded: boolean;
   publicUrl: string | null;
+  remoteDir?: string | null;
   message: string;
 }> {
   const session = await requireAuth();
@@ -787,11 +788,29 @@ export async function publishMenuAction(
         menuSlug: existing.slug,
         ftp,
       });
-      await uploadStaticMenuViaFtp({
+      const uploaded = await uploadStaticMenuViaFtp({
         ftp,
         publishPath,
         files,
       });
+
+      const version = await activatePublishedVersion(
+        menuId,
+        session.user.tenantId,
+        pendingVersion.id
+      );
+
+      revalidateMenuPaths(existing.slug);
+      revalidatePath("/dashboard");
+
+      return {
+        ok: true,
+        version: { id: version.id, version: version.version },
+        ftpUploaded: true,
+        publicUrl: buildPublicMenuUrl(ftp.publicBaseUrl, publishPath),
+        remoteDir: uploaded.remoteDir,
+        message: `Menu pubblicato e caricato via FTP in ${uploaded.remoteDir}`,
+      };
     } catch (error) {
       await prisma.menuVersion
         .delete({ where: { id: pendingVersion.id } })
@@ -817,32 +836,22 @@ export async function publishMenuAction(
     revalidateMenuPaths(existing.slug);
     revalidatePath("/dashboard");
 
-    if (!ftpReady) {
-      return {
-        ok: true,
-        version: { id: version.id, version: version.version },
-        ftpUploaded: false,
-        publicUrl: null,
-        message:
-          "Menu pubblicato su La Carte. Configura FTP in Impostazioni per caricarlo sul sito.",
-      };
-    }
-
     return {
       ok: true,
       version: { id: version.id, version: version.version },
-      ftpUploaded: true,
-      publicUrl: buildPublicMenuUrl(ftp.publicBaseUrl, publishPath),
-      message: "Menu pubblicato e caricato via FTP.",
+      ftpUploaded: false,
+      publicUrl: null,
+      message:
+        "Menu pubblicato su La Carte. Configura FTP in Impostazioni per caricarlo sul sito.",
     };
   } catch (error) {
     return {
       ok: false,
-      ftpUploaded: ftpReady,
+      ftpUploaded: false,
       publicUrl: null,
       message:
         error instanceof Error
-          ? `Upload OK ma attivazione versione fallita: ${error.message}`
+          ? `Attivazione versione fallita: ${error.message}`
           : "Attivazione versione fallita",
     };
   }

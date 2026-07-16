@@ -4,24 +4,37 @@ import { joinFtpPath } from "@/lib/ftp-publish-path";
 import type { FtpPublishSettings } from "@/lib/ftp-settings";
 import type { StaticMenuFile } from "@/lib/generate-static-menu";
 
+function normalizeFtpPwd(pwd: string) {
+  return pwd.replace(/\\/g, "/").replace(/\/+$/, "") || "/";
+}
+
 /**
- * Create each path segment from the FTP home / root, then leave cwd there.
- * Absolute ensureDir is unreliable on some hosts (e.g. Aruba).
+ * If FTP login already lands inside (part of) remoteBasePath, don't recreate
+ * those segments — otherwise Aruba ends up with a nested duplicate folder.
  */
-async function ensurePathFromRoot(client: Client, absoluteOrRelative: string) {
-  const parts = absoluteOrRelative
+function remainingBaseSegments(pwd: string, remoteBasePath: string): string[] {
+  const parts = remoteBasePath
     .replace(/^\/+|\/+$/g, "")
     .split("/")
     .filter(Boolean);
+  if (parts.length === 0) return [];
 
-  // Prefer account root; ignore failure if the host is already chrooted.
-  try {
-    await client.cd("/");
-  } catch {
-    // stay where login left us
+  const pwdParts = normalizeFtpPwd(pwd).split("/").filter(Boolean);
+
+  for (let len = Math.min(parts.length, pwdParts.length); len > 0; len--) {
+    const prefix = parts.slice(0, len);
+    const suffix = pwdParts.slice(-len);
+    if (prefix.every((part, index) => part === suffix[index])) {
+      return parts.slice(len);
+    }
   }
 
-  for (const part of parts) {
+  return parts;
+}
+
+/** Create missing segments from current cwd; leave cwd at the target base. */
+async function ensureRelativePath(client: Client, segments: string[]) {
+  for (const part of segments) {
     const entries = await client.list();
     const exists = entries.some(
       (entry) => entry.name === part && entry.isDirectory
@@ -60,11 +73,17 @@ export async function uploadStaticMenuViaFtp(input: {
   const client = new Client(60_000);
   client.ftp.verbose = false;
 
-  const basePath = joinFtpPath(input.ftp.remoteBasePath);
+  const basePath = joinFtpPath(
+    input.ftp.remoteBasePath === "." ? "" : input.ftp.remoteBasePath
+  );
   const liveName = joinFtpPath(input.publishPath);
+  if (liveName.includes("/")) {
+    throw new Error(
+      "Il percorso menu non può contenere sottocartelle (usa solo es. menu-dinner)."
+    );
+  }
   const incomingName = `${liveName}__incoming`;
   const previousName = `${liveName}__previous`;
-  const liveDir = `/${joinFtpPath(basePath, liveName)}`;
 
   try {
     await client.access({
@@ -78,10 +97,12 @@ export async function uploadStaticMenuViaFtp(input: {
         : undefined,
     });
 
-    // Create remoteBasePath if missing (e.g. bistrot.southgarage.com)
-    await ensurePathFromRoot(client, basePath);
+    const homePwd = await client.pwd();
+    const segments = remainingBaseSegments(homePwd, basePath);
+    await ensureRelativePath(client, segments);
 
-    // cwd = base
+    const basePwd = normalizeFtpPwd(await client.pwd());
+
     await removeDirInCwd(client, incomingName);
     await client.send(`MKD ${incomingName}`);
     await client.cd(incomingName);
@@ -115,7 +136,22 @@ export async function uploadStaticMenuViaFtp(input: {
 
     await removeDirInCwd(client, previousName);
 
-    return { remoteDir: liveDir };
+    // Confirm live folder exists and report the real FTP path
+    if (!(await dirExistsInCwd(client, liveName))) {
+      throw new Error(
+        `Upload completato ma la cartella "${liveName}" non risulta in ${basePwd}`
+      );
+    }
+
+    await client.cd(liveName);
+    const remoteDir = normalizeFtpPwd(await client.pwd());
+    const listing = (await client.list()).map((entry) => entry.name);
+
+    return {
+      remoteDir,
+      baseDir: basePwd,
+      files: listing,
+    };
   } finally {
     client.close();
   }
