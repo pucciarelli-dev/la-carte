@@ -396,12 +396,13 @@ FileETag None
 </IfModule>
 <IfModule mod_rewrite.c>
   RewriteEngine On
-  # Directory URL → index.php (when origin is reached; bypasses stale Aruba HIT eventually)
-  RewriteRule ^$ index.php [L]
-  # Old bookmarked HTML URLs → PHP
-  RewriteRule ^menu\\.html$ index.php [L]
-  RewriteRule ^en\\.html$ en.php [L]
-  RewriteRule ^index\\.html$ index.php [L]
+  # External redirect — browser URL becomes …/index.php (not a silent rewrite).
+  # Aruba caches bare /menu-*/ as HIT; index.php stays the durable entrypoint.
+  RewriteRule ^$ index.php [R=302,L]
+  RewriteRule ^menu\\.html$ index.php [R=302,L]
+  RewriteRule ^index\\.html$ index.php [R=302,L]
+  RewriteRule ^en\\.html$ en.php [R=302,L]
+  RewriteRule ^en$ en.php [R=302,L]
 </IfModule>
 `;
 }

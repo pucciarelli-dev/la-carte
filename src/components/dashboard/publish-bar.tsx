@@ -24,7 +24,7 @@ import { useFlushMenuEditorSave } from "@/components/dashboard/menu-editor-save"
 import { withMenuLocale } from "@/lib/locale";
 import {
   buildPublicMenuUrl,
-  defaultStaticPublishPath,
+  resolveStaticPublishPath,
   normalizeStaticPublishPath,
 } from "@/lib/ftp-publish-path";
 import {
@@ -83,7 +83,11 @@ export function PublishBar({
   const [publishMessage, setPublishMessage] = useState<string | null>(null);
   const [publishError, setPublishError] = useState<string | null>(null);
   const [pathDraft, setPathDraft] = useState(
-    staticPublishPath || defaultStaticPublishPath(menuType)
+    resolveStaticPublishPath({
+      explicit: staticPublishPath,
+      slug: menuSlug,
+      type: menuType,
+    })
   );
 
   const publicBase =
@@ -200,7 +204,11 @@ export function PublishBar({
               setPublishError(null);
               setPublishMessage(null);
               setPathDraft(
-                staticPublishPath || defaultStaticPublishPath(menuType)
+                resolveStaticPublishPath({
+                  explicit: staticPublishPath,
+                  slug: menuSlug,
+                  type: menuType,
+                })
               );
               setConfirmOpen(true);
             }}
@@ -293,7 +301,10 @@ export function PublishBar({
                 id="static-publish-path"
                 value={pathDraft}
                 onChange={(e) => setPathDraft(e.target.value)}
-                placeholder={defaultStaticPublishPath(menuType)}
+                placeholder={resolveStaticPublishPath({
+                  slug: menuSlug,
+                  type: menuType,
+                })}
               />
               <p className="text-xs text-muted-foreground break-all">
                 URL pubblico: {previewPublicUrl}

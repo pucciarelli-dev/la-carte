@@ -10,7 +10,7 @@ import {
   getFtpPublishSettingsPublic,
   isFtpConfigured,
 } from "@/lib/ftp-settings";
-import { defaultStaticPublishPath } from "@/lib/ftp-publish-path";
+import { resolveStaticPublishPath } from "@/lib/ftp-publish-path";
 import { DinnerMenuEditor } from "@/components/dashboard/dinner-menu-editor";
 import { WineMenuEditor } from "@/components/dashboard/wine-menu-editor";
 import { DrinkMenuEditor } from "@/components/dashboard/drink-menu-editor";
@@ -56,9 +56,11 @@ export default async function MenuEditorPage({ params }: PageProps) {
         menuName={menu.name}
         menuType={menu.type}
         status={menu.status}
-        staticPublishPath={
-          menu.staticPublishPath || defaultStaticPublishPath(menu.type)
-        }
+        staticPublishPath={resolveStaticPublishPath({
+          explicit: menu.staticPublishPath,
+          slug: menu.slug,
+          type: menu.type,
+        })}
         ftpPublicBaseUrl={ftpPublic.publicBaseUrl}
         ftpConfigured={isFtpConfigured(ftpFull)}
         versions={versions}

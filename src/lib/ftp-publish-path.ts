@@ -13,6 +13,18 @@ export function defaultStaticPublishPath(type: MenuType): string {
   }
 }
 
+/** Prefer an explicit path, then the menu slug, then the type default. */
+export function resolveStaticPublishPath(input: {
+  explicit?: string | null;
+  slug?: string | null;
+  type: MenuType;
+}): string {
+  const explicit = input.explicit?.trim();
+  if (explicit) return normalizeStaticPublishPath(explicit);
+  if (input.slug?.trim()) return normalizeStaticPublishPath(input.slug);
+  return defaultStaticPublishPath(input.type);
+}
+
 export function normalizeStaticPublishPath(value: string): string {
   return value
     .normalize("NFD")

@@ -116,6 +116,7 @@ export async function createMenuAction(data: unknown) {
         type: parsed.type,
         slug: parsed.slug,
         name: parsed.name.trim(),
+        staticPublishPath: parsed.slug,
         layout: template?.layout ?? defaults.layout,
         subtitle: template?.subtitle ?? defaults.subtitle,
         typography: template?.typography ?? defaults.typography,
@@ -724,8 +725,7 @@ export async function publishMenuAction(
   }
 
   const {
-    defaultStaticPublishPath,
-    normalizeStaticPublishPath,
+    resolveStaticPublishPath,
     isValidStaticPublishPath,
     buildPublicMenuUrl,
   } = await import("@/lib/ftp-publish-path");
@@ -733,11 +733,11 @@ export async function publishMenuAction(
     "@/lib/ftp-settings"
   );
 
-  const publishPath = normalizeStaticPublishPath(
-    options?.staticPublishPath?.trim() ||
-      existing.staticPublishPath ||
-      defaultStaticPublishPath(existing.type)
-  );
+  const publishPath = resolveStaticPublishPath({
+    explicit: options?.staticPublishPath,
+    slug: existing.slug,
+    type: existing.type,
+  });
 
   if (!isValidStaticPublishPath(publishPath)) {
     return {
