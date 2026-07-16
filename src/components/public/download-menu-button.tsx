@@ -43,7 +43,14 @@ function DownloadMenuButtonInner({
       );
 
       if (!response.ok) {
-        throw new Error("PDF non disponibile");
+        let detail = "PDF non disponibile";
+        try {
+          const payload = (await response.json()) as { detail?: string; error?: string };
+          detail = payload.detail || payload.error || detail;
+        } catch {
+          // ignore non-JSON errors
+        }
+        throw new Error(detail);
       }
 
       const blob = await response.blob();
@@ -53,8 +60,12 @@ function DownloadMenuButtonInner({
       link.download = `menu-${slug}.pdf`;
       link.click();
       URL.revokeObjectURL(objectUrl);
-    } catch {
-      window.alert("Non è stato possibile generare il PDF. Riprova tra poco.");
+    } catch (error) {
+      const message =
+        error instanceof Error && error.message
+          ? error.message
+          : "Non è stato possibile generare il PDF. Riprova tra poco.";
+      window.alert(message);
     } finally {
       setIsPending(false);
     }

@@ -1,4 +1,5 @@
-import { chromium, type Page } from "playwright";
+import { existsSync } from "fs";
+import { chromium, type Browser, type Page } from "playwright";
 import {
   MENU_PDF_WINE_PAGE_BREAK_CLASS,
   MENU_PDF_WINE_PAGE_BOTTOM_PAD_CLASS,
@@ -8,6 +9,65 @@ import {
 
 type BrowserEvaluator = () => void | Promise<void>;
 type BrowserPredicate = () => boolean | Promise<boolean>;
+
+function needsServerlessChromium() {
+  return Boolean(
+    process.env.RAILWAY_ENVIRONMENT ||
+      process.env.RAILWAY_PROJECT_ID ||
+      process.env.USE_SPARTICUZ_CHROMIUM === "1"
+  );
+}
+
+function systemChromiumPath(): string | undefined {
+  const candidates = [
+    process.env.CHROME_PATH,
+    process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH,
+    "/bin/chromium",
+    "/usr/bin/chromium",
+    "/usr/bin/chromium-browser",
+  ].filter((value): value is string => Boolean(value));
+
+  return candidates.find((candidate) => existsSync(candidate));
+}
+
+async function launchPdfBrowser(): Promise<Browser> {
+  const commonArgs = [
+    "--no-sandbox",
+    "--disable-setuid-sandbox",
+    "--disable-dev-shm-usage",
+  ];
+
+  if (!needsServerlessChromium()) {
+    return chromium.launch({
+      headless: true,
+      args: commonArgs,
+    });
+  }
+
+  // Prefer Nix/system Chromium on Railway (Playwright's bundled browser needs missing libs).
+  const systemPath = systemChromiumPath();
+  if (systemPath) {
+    return chromium.launch({
+      executablePath: systemPath,
+      headless: true,
+      args: commonArgs,
+    });
+  }
+
+  const mod = await import("@sparticuz/chromium");
+  const sparticuz = ("default" in mod && mod.default ? mod.default : mod) as {
+    args: string[];
+    setGraphicsMode: (enabled: boolean) => void;
+    executablePath: () => Promise<string>;
+  };
+  sparticuz.setGraphicsMode(false);
+
+  return chromium.launch({
+    executablePath: await sparticuz.executablePath(),
+    headless: true,
+    args: [...sparticuz.args, ...commonArgs],
+  });
+}
 
 function runInPage(page: Page, script: string, arg?: unknown) {
   const fn = new Function(
@@ -359,10 +419,7 @@ async function assertMenuPageReady(page: Page) {
 }
 
 export async function generateMenuPdf(pageUrl: string): Promise<Buffer> {
-  const browser = await chromium.launch({
-    headless: true,
-    args: ["--no-sandbox", "--disable-setuid-sandbox"],
-  });
+  const browser = await launchPdfBrowser();
 
   try {
     const page = await browser.newPage();

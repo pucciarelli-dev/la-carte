@@ -40,6 +40,7 @@
     "@radix-ui/react-tabs": "^1.1.12",
     "@radix-ui/react-toast": "^1.2.14",
     "@radix-ui/react-tooltip": "^1.2.7",
+    "@sparticuz/chromium": "^143.0.4",
     "@tanstack/react-table": "^8.21.3",
     "basic-ftp": "^6.0.1",
     "bcryptjs": "^3.0.2",

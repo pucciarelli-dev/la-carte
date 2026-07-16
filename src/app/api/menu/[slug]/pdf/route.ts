@@ -46,7 +46,8 @@ export async function GET(
     );
   }
 
-  const pageUrl = new URL(`/menu/${slug}`, request.url);
+  const port = process.env.PORT || "3000";
+  const pageUrl = new URL(`http://127.0.0.1:${port}/menu/${slug}`);
   pageUrl.searchParams.set("pdf", "1");
   if (preview) pageUrl.searchParams.set("preview", "true");
   if (lang === "en") pageUrl.searchParams.set("lang", "en");
@@ -64,8 +65,10 @@ export async function GET(
     });
   } catch (error) {
     console.error("PDF generation failed:", error);
+    const detail =
+      error instanceof Error ? error.message : "Errore sconosciuto";
     return NextResponse.json(
-      { error: "Generazione PDF non riuscita" },
+      { error: "Generazione PDF non riuscita", detail },
       { status: 500 }
     );
   }
