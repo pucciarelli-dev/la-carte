@@ -23,7 +23,6 @@ import {
 } from "@/lib/allergens";
 import {
   createMenuItem,
-  updateMenuItem,
   deleteMenuItem,
   duplicateMenuItem,
   reorderMenuItems,
@@ -31,6 +30,7 @@ import {
   updateCategory,
   deleteCategory,
   reorderCategories,
+  persistDinnerMenuAction,
 } from "@/server/actions/menu-actions";
 
 interface CategoryData {
@@ -260,26 +260,36 @@ export function DinnerMenuEditor({
     const current = categoriesRef.current;
     if (!hasChanges()) return false;
 
-    for (const cat of current) {
-      await updateCategory(cat.id, {
+    await persistDinnerMenuAction(
+      menuId,
+      current.map((cat) => ({
+        id: cat.id,
         name: cat.name,
         nameEn: cat.nameEn ?? "",
         visible: cat.visible,
         backgroundColor: cat.backgroundColor ?? null,
         textColor: cat.textColor ?? null,
         footerImageUrl: cat.footerImageUrl ?? null,
-      });
-      for (const item of cat.menuItems) {
-        await updateMenuItem(item.id, {
-          ...item,
+        items: cat.menuItems.map((item) => ({
+          id: item.id,
+          name: item.name,
+          nameEn: item.nameEn ?? "",
+          description: item.description,
+          descriptionEn: item.descriptionEn ?? "",
           price: parseFloat(String(item.price)) || 0,
-        });
-      }
-    }
+          visible: item.visible,
+          isVegetarian: item.isVegetarian,
+          isVegan: item.isVegan,
+          isGlutenFree: item.isGlutenFree,
+          isSpicy: item.isSpicy,
+          allergens: item.allergens,
+        })),
+      }))
+    );
 
     markSaved();
     return true;
-  }, [hasChanges, markSaved]);
+  }, [hasChanges, markSaved, menuId]);
 
   useRegisterMenuEditorSave(async () => {
     await persistChanges();
@@ -390,26 +400,16 @@ export function DinnerMenuEditor({
                     (a, b) => parseInt(a, 10) - parseInt(b, 10)
                   );
               handleUpdateItem(activeCategory.id, itemId, "allergens", next);
-              void updateMenuItem(itemId, { allergens: next }).then(() =>
-                saveAndNotify()
-              );
             }}
             onToggleFlag={(itemId, field) => {
               const item = activeCategory.menuItems.find((i) => i.id === itemId);
               if (!item) return;
-              const newVal = !item[field];
-              handleUpdateItem(activeCategory.id, itemId, field, newVal);
-              void updateMenuItem(item.id, { [field]: newVal }).then(() =>
-                saveAndNotify()
-              );
+              handleUpdateItem(activeCategory.id, itemId, field, !item[field]);
             }}
             onToggleVisible={(itemId) => {
               const item = activeCategory.menuItems.find((i) => i.id === itemId);
               if (!item) return;
               handleUpdateItem(activeCategory.id, itemId, "visible", !item.visible);
-              void updateMenuItem(item.id, { visible: !item.visible }).then(() =>
-                saveAndNotify()
-              );
             }}
             onDuplicate={async (itemId) => {
               const dup = await duplicateMenuItem(itemId);

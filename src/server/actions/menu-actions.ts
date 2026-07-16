@@ -330,6 +330,103 @@ export async function updateMenuItem(id: string, data: unknown) {
   return item;
 }
 
+const dinnerPersistCategorySchema = z.object({
+  id: z.string().min(1),
+  name: z.string().min(1),
+  nameEn: z.string().default(""),
+  visible: z.boolean(),
+  backgroundColor: z.string().nullable(),
+  textColor: z.string().nullable(),
+  footerImageUrl: z.string().nullable(),
+  items: z.array(
+    z.object({
+      id: z.string().min(1),
+      name: z.string().min(1),
+      nameEn: z.string().default(""),
+      description: z.string().default(""),
+      descriptionEn: z.string().default(""),
+      price: z.coerce.number().min(0),
+      visible: z.boolean(),
+      isVegetarian: z.boolean(),
+      isVegan: z.boolean(),
+      isGlutenFree: z.boolean(),
+      isSpicy: z.boolean(),
+      allergens: z.array(z.string()),
+    })
+  ),
+});
+
+/** One round-trip autosave for the dinner editor (avoids N sequential updates). */
+export async function persistDinnerMenuAction(
+  menuId: string,
+  categories: unknown
+) {
+  const session = await requireAuth();
+  const parsedCategories = z.array(dinnerPersistCategorySchema).parse(categories);
+
+  const menu = await prisma.menu.findFirst({
+    where: { id: menuId, tenantId: session.user.tenantId },
+    select: { id: true, slug: true },
+  });
+  if (!menu) throw new Error("Menu non trovato");
+
+  const categoryIds = parsedCategories.map((category) => category.id);
+  const ownedCategories = await prisma.category.findMany({
+    where: {
+      tenantId: session.user.tenantId,
+      menuId: menu.id,
+      id: { in: categoryIds },
+    },
+    select: { id: true },
+  });
+  const ownedCategoryIds = new Set(ownedCategories.map((category) => category.id));
+
+  await prisma.$transaction(async (tx) => {
+    for (const category of parsedCategories) {
+      if (!ownedCategoryIds.has(category.id)) continue;
+
+      await tx.category.update({
+        where: { id: category.id, tenantId: session.user.tenantId },
+        data: {
+          name: category.name,
+          nameEn: category.nameEn,
+          visible: category.visible,
+          backgroundColor: category.backgroundColor,
+          textColor: category.textColor,
+          footerImageUrl: category.footerImageUrl,
+        },
+      });
+
+      for (const item of category.items) {
+        const allergens = normalizeAllergenIds(item.allergens);
+        await tx.menuItem.updateMany({
+          where: {
+            id: item.id,
+            tenantId: session.user.tenantId,
+            categoryId: category.id,
+          },
+          data: {
+            name: item.name,
+            nameEn: item.nameEn,
+            description: item.description,
+            descriptionEn: item.descriptionEn,
+            price: item.price,
+            visible: item.visible,
+            isVegetarian: item.isVegetarian,
+            isVegan: item.isVegan,
+            isGlutenFree: item.isGlutenFree,
+            isSpicy: item.isSpicy,
+            allergens,
+          },
+        });
+      }
+    }
+  });
+
+  revalidateMenuPaths(menu.slug);
+  return { ok: true as const };
+}
+
 export async function deleteMenuItem(id: string) {
   const session = await requireAuth();
 

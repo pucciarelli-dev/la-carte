@@ -12,7 +12,7 @@ interface AutosaveIndicatorProps {
 
 export function AutosaveIndicator({
   onSave,
-  debounceMs = 1500,
+  debounceMs = 800,
   trigger,
   hasChanges,
 }: AutosaveIndicatorProps) {
@@ -21,26 +21,45 @@ export function AutosaveIndicator({
   const isFirstRender = useRef(true);
   const hasChangesRef = useRef(hasChanges);
   const onSaveRef = useRef(onSave);
+  const inFlightRef = useRef(false);
+  const pendingRef = useRef(false);
 
   hasChangesRef.current = hasChanges;
   onSaveRef.current = onSave;
 
-  const save = useCallback(() => {
+  const runSave = useCallback(async () => {
+    if (inFlightRef.current) {
+      pendingRef.current = true;
+      return;
+    }
     if (!hasChangesRef.current()) return;
 
+    inFlightRef.current = true;
     saveToast?.notifySavingStart();
-    void (async () => {
-      try {
+
+    try {
+      let savedAny = false;
+      do {
+        pendingRef.current = false;
+        if (!hasChangesRef.current()) break;
         const saved = await onSaveRef.current();
-        if (saved) {
-          saveToast?.notifySaved();
-        } else {
-          saveToast?.notifySavingEnd();
-        }
-      } catch {
+        if (saved) savedAny = true;
+      } while (pendingRef.current);
+
+      if (savedAny) {
+        saveToast?.notifySaved();
+      } else {
         saveToast?.notifySavingEnd();
       }
-    })();
+    } catch {
+      saveToast?.notifySavingEnd();
+    } finally {
+      inFlightRef.current = false;
+      if (pendingRef.current && hasChangesRef.current()) {
+        pendingRef.current = false;
+        void runSave();
+      }
+    }
   }, [saveToast]);
 
   useEffect(() => {
@@ -52,12 +71,14 @@ export function AutosaveIndicator({
     if (!hasChanges()) return;
 
     if (timerRef.current) clearTimeout(timerRef.current);
-    timerRef.current = setTimeout(save, debounceMs);
+    timerRef.current = setTimeout(() => {
+      void runSave();
+    }, debounceMs);
 
     return () => {
       if (timerRef.current) clearTimeout(timerRef.current);
     };
-  }, [trigger, debounceMs, save, hasChanges]);
+  }, [trigger, debounceMs, runSave, hasChanges]);
 
   return null;
 }
