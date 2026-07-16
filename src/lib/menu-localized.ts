@@ -13,7 +13,7 @@ export const DEFAULT_CATEGORY_NAME_EN = "New category";
 
 /** Categoria mostrata per la lingua corrente (dashboard e menu pubblico). */
 export function categoryVisibleInLocale(
-  category: Pick<PublishedCategory, "name" | "nameEn">,
+  category: { name: string; nameEn?: string | null },
   locale: MenuLocale
 ): boolean {
   const itName = category.name.trim();

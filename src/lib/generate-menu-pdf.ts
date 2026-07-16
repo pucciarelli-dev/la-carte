@@ -18,8 +18,8 @@ function runInPage(page: Page, script: string, arg?: unknown) {
   return arg === undefined ? page.evaluate(fn as BrowserEvaluator) : page.evaluate(fn, arg);
 }
 
-function runInPageSync(page: Page, script: string) {
-  const fn = new Function(`return (${script})();`) as BrowserEvaluator;
+function runInPageSync<T>(page: Page, script: string): Promise<T> {
+  const fn = new Function(`return (${script})();`) as () => T;
   return page.evaluate(fn);
 }
 
@@ -346,7 +346,7 @@ async function padWineRowsAtPageTop(page: Page) {
 }
 
 async function assertMenuPageReady(page: Page) {
-  const ready = await runInPageSync(
+  const ready = await runInPageSync<boolean>(
     page,
     `function() {
       return Boolean(document.querySelector(".menu-pdf-root"));

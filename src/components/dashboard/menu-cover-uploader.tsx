@@ -189,7 +189,7 @@ export function MenuCoverFields({
   );
 }
 
-interface MenuCoverUploaderProps extends MenuCoverFieldsProps {}
+type MenuCoverUploaderProps = MenuCoverFieldsProps;
 
 export function MenuCoverUploader(props: MenuCoverUploaderProps) {
   return (

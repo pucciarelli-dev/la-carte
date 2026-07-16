@@ -103,8 +103,7 @@ export function shouldShowIntroTextSection(intro?: MenuIntro | null): boolean {
 export function normalizeMenuIntro(
   intro: MenuIntro | null | undefined,
   branding: TenantBranding,
-  menuType: import("@prisma/client").MenuType,
-  subtitle?: string | null
+  menuType: import("@prisma/client").MenuType
 ): MenuIntro {
   const defaultHeroTitle =
     menuType === "DINNER" ? "MENÙ" : menuType === "WINE" ? "WINE" : "DRINK";

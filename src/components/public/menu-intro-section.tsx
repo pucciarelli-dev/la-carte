@@ -62,7 +62,7 @@ export function MenuIntroSection({
   coverVideoUrl,
   className,
 }: MenuIntroSectionProps) {
-  const data = normalizeMenuIntro(intro, branding, menuType, subtitle);
+  const data = normalizeMenuIntro(intro, branding, menuType);
   const textSection = getIntroTextSectionContent(intro);
   const heroSubtitle = subtitle ?? DEFAULT_MENU_SUBTITLES[menuType];
   const hasCover = Boolean(coverImageUrl || coverVideoUrl);

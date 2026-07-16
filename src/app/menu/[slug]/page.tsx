@@ -49,7 +49,7 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
 
 export default async function PublicMenuPage({ params, searchParams }: PageProps) {
   const { slug } = await params;
-  const { preview, embed, view, lang, pdf } = await searchParams;
+  const { preview, embed, lang, pdf } = await searchParams;
 
   const tenant = await resolveTenantFromRequest();
   if (!tenant) notFound();
@@ -61,8 +61,6 @@ export default async function PublicMenuPage({ params, searchParams }: PageProps
   const isEmbed = embed === "1" || embed === "true";
   const isPdfExport = pdf === "1";
   const locale = parseMenuLocale(lang);
-  const previewView =
-    view === "mobile" || view === "desktop" ? view : undefined;
 
   if (isPreview && !isEmbed && !isPdfExport) {
     return (
